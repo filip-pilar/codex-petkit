@@ -1,0 +1,6 @@
+interface:
+  display_name: "Edit Pet"
+  short_description: "Make a focused reversible pet edit"
+  default_prompt: "Use $edit-pet to make this focused change to my existing editable pet and prove that unaffected states stayed unchanged."
+policy:
+  allow_implicit_invocation: false

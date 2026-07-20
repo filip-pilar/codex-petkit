@@ -1,0 +1,9 @@
+Pet Workshop
+Copyright 2026 Pet Workshop contributors
+
+This product includes software derived from OpenAI's openai/skills project,
+licensed under the Apache License, Version 2.0. The vendored files and their
+provenance are identified in third_party/openai-hatch-pet/.
+
+Codex and OpenAI are trademarks of OpenAI. This community project is not an
+official OpenAI product and is not endorsed by OpenAI.

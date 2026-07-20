@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/pet-workshop/project.schema.json",
+  "title": "Editable Codex Pet Project",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "display_name",
+    "description",
+    "contract_version",
+    "status",
+    "created_at",
+    "updated_at",
+    "identity",
+    "generation",
+    "look"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "display_name": {"type": "string", "minLength": 1},
+    "description": {"type": "string", "minLength": 1},
+    "contract_version": {"const": 2},
+    "status": {
+      "enum": ["brief", "identity-pending", "identity-approved", "generating", "review", "accepted"]
+    },
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "parent_id": {"type": ["string", "null"]},
+    "identity": {
+      "type": "object",
+      "required": ["concept", "style", "approved"],
+      "properties": {
+        "concept": {"type": "string"},
+        "style": {"type": "string"},
+        "approved": {"type": "boolean"},
+        "approved_at": {"type": ["string", "null"]},
+        "canonical_reference": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "generation": {
+      "type": "object",
+      "required": ["chroma_key", "chroma_threshold", "completed_states"],
+      "properties": {
+        "chroma_key": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+        "chroma_threshold": {"type": "number", "minimum": 0},
+        "completed_states": {
+          "type": "array",
+          "items": {"type": "string"},
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "look": {
+      "type": "object",
+      "required": ["mechanics", "cardinals", "row_9_approved", "row_9_approval"],
+      "properties": {
+        "mechanics": {"type": ["object", "null"]},
+        "cardinals": {"type": ["object", "null"]},
+        "row_9_approved": {"type": "boolean"},
+        "row_9_approval": {"type": ["object", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "current_build": {"type": ["string", "null"]},
+    "accepted_build": {"type": ["string", "null"]},
+    "active_edit": {"type": ["object", "null"]}
+  },
+  "additionalProperties": true
+}

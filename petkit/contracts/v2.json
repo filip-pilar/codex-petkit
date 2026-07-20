@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "contract": "codex-pet-sprite",
+  "version": 2,
+  "verified_on": "2026-07-19",
+  "sources": {
+    "manual": "https://learn.chatgpt.com/docs/pets",
+    "hatch_pet_skill": "third_party/openai-hatch-pet",
+    "animation_rows": "petkit/references/v2/animation-rows.md"
+  },
+  "atlas": {
+    "width": 1536,
+    "height": 2288,
+    "columns": 8,
+    "rows": 11,
+    "standard_rows": 9,
+    "cell_width": 192,
+    "cell_height": 208,
+    "formats": ["PNG", "WEBP"],
+    "max_bytes": 20971520,
+    "background": "transparent",
+    "unused_cells": "fully-transparent",
+    "neutral_look_frame": {"row": 0, "column": 6, "source_state": "idle", "source_column": 0}
+  },
+  "look_directions_degrees": [
+    0, 22.5, 45, 67.5, 90, 112.5, 135, 157.5,
+    180, 202.5, 225, 247.5, 270, 292.5, 315, 337.5
+  ],
+  "states": [
+    {"id": "idle", "row": 0, "frame_count": 6, "durations_ms": [280, 110, 110, 140, 140, 320], "purpose": "Calm breathing or blinking loop; frame 0 is the reduced-motion still."},
+    {"id": "running-right", "row": 1, "frame_count": 8, "durations_ms": [120, 120, 120, 120, 120, 120, 120, 220], "purpose": "Directional locomotion to the right."},
+    {"id": "running-left", "row": 2, "frame_count": 8, "durations_ms": [120, 120, 120, 120, 120, 120, 120, 220], "purpose": "Directional locomotion to the left."},
+    {"id": "waving", "row": 3, "frame_count": 4, "durations_ms": [140, 140, 140, 280], "purpose": "Greeting or attention gesture."},
+    {"id": "jumping", "row": 4, "frame_count": 5, "durations_ms": [140, 140, 140, 140, 280], "purpose": "Anticipation, lift, peak, descent, and settle."},
+    {"id": "failed", "row": 5, "frame_count": 8, "durations_ms": [140, 140, 140, 140, 140, 140, 140, 240], "purpose": "Readable error, sad, or deflated reaction."},
+    {"id": "waiting", "row": 6, "frame_count": 6, "durations_ms": [150, 150, 150, 150, 150, 260], "purpose": "Expectant pose for approval, help, or other user input."},
+    {"id": "running", "row": 7, "frame_count": 6, "durations_ms": [120, 120, 120, 120, 120, 220], "purpose": "Active task work, processing, scanning, typing, or focused effort; not locomotion."},
+    {"id": "review", "row": 8, "frame_count": 6, "durations_ms": [150, 150, 150, 150, 150, 280], "purpose": "Focused inspecting or thinking loop."},
+    {"id": "look-a", "row": 9, "frame_count": 8, "durations_ms": [100, 100, 100, 100, 100, 100, 100, 100], "directions_degrees": [0, 22.5, 45, 67.5, 90, 112.5, 135, 157.5], "purpose": "Clockwise look directions from up through down-right."},
+    {"id": "look-b", "row": 10, "frame_count": 8, "durations_ms": [100, 100, 100, 100, 100, 100, 100, 100], "directions_degrees": [180, 202.5, 225, 247.5, 270, 292.5, 315, 337.5], "purpose": "Clockwise look directions from down through up-left."}
+  ],
+  "package": {
+    "manifest": "pet.json",
+    "spritesheet": "spritesheet.webp",
+    "sprite_version_number": 2,
+    "manifest_required_fields": ["id", "displayName", "description", "spriteVersionNumber", "spritesheetPath"]
+  }
+}

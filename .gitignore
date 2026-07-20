@@ -1,0 +1,39 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+.pytest_cache/
+
+# Local Python environments, build output, and test reports.
+.venv/
+venv/
+*.egg-info/
+/build/
+/dist/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Local configuration. Commit a redacted .env.example if configuration is
+# introduced later.
+.env
+.env.*
+!.env.example
+
+# Editor state.
+.idea/
+.vscode/
+*.swp
+
+# Pet projects contain generated art, immutable builds, private QA answer
+# keys, installation backups, and machine-local history. They are user data,
+# not source code. Keep the directory itself for the default CLI path.
+/pets/*
+!/pets/.gitkeep
+
+# Temporary package swap directories created by interrupted install operations.
+.*.install-*
+.*.previous-*
+.*.rollback-*
+.*.pre-rollback-*

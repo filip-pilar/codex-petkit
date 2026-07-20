@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pet-workshop"
+version = "0.1.0"
+description = "Skills and deterministic tooling for creating and editing Codex Desktop pets."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+dependencies = ["Pillow>=10"]
+keywords = ["codex", "desktop-pet", "agent-skill", "sprite", "animation"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+
+[project.scripts]
+petkit = "petkit.cli:main"
+
+[tool.setuptools]
+include-package-data = true
+packages = ["petkit"]
+
+[tool.setuptools.package-data]
+petkit = [
+  "contracts/*.json",
+  "schemas/*.json",
+  "references/**/*.md",
+  "v2scripts/*.py",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

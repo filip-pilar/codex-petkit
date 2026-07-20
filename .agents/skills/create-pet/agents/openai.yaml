@@ -1,0 +1,6 @@
+interface:
+  display_name: "Create Pet"
+  short_description: "Create a complete editable Codex pet"
+  default_prompt: "Use $create-pet to turn my concept and optional references into a complete editable Codex pet."
+policy:
+  allow_implicit_invocation: false
