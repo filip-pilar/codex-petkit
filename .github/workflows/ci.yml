@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  fast-tests:
     strategy:
       fail-fast: false
       matrix:
@@ -22,13 +22,47 @@ jobs:
           cache: pip
       - name: Install
         run: python -m pip install --upgrade pip && python -m pip install -e .
-      - name: Test
-        run: python -m unittest discover -s tests -v
+      - name: Test contracts, schemas, safety, validation, and regressions
+        run: |
+          python -m unittest -v \
+            tests.test_contract \
+            tests.test_project_schema \
+            tests.test_safety \
+            tests.test_validation \
+            tests.test_locky_regression
+
+  workflow-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install
+        run: python -m pip install --upgrade pip && python -m pip install -e .
+      - name: Test end-to-end workflows
+        run: python -m unittest tests.test_workflow -v
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install build dependencies
+        run: python -m pip install --upgrade pip
       - name: Build wheel
         run: python -m pip wheel --no-deps --wheel-dir dist .
       - name: Verify wheel package data
         run: |
-          python -m pip install --force-reinstall --no-deps dist/*.whl
+          python -m pip install --force-reinstall dist/*.whl
           cd "$(mktemp -d)"
           python -m petkit contract --version 2
-          python -c 'from petkit.v2 import SCRIPT_ROOT; assert (SCRIPT_ROOT / "assemble_extended_atlas.py").is_file()'
+          python -c 'from petkit.contract import PACKAGE_ROOT; from petkit.project import PROJECT_SCHEMA_FILE; from petkit.v2 import SCRIPT_ROOT; assert PROJECT_SCHEMA_FILE.is_file(); assert (PACKAGE_ROOT / "references/v2/animation-rows.md").is_file(); assert (SCRIPT_ROOT / "assemble_extended_atlas.py").is_file()'
