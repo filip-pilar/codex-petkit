@@ -27,7 +27,10 @@
     },
     "created_at": {"type": "string", "format": "date-time"},
     "updated_at": {"type": "string", "format": "date-time"},
-    "parent_id": {"type": ["string", "null"]},
+    "parent_id": {
+      "type": ["string", "null"],
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
     "identity": {
       "type": "object",
       "required": ["concept", "style", "approved"],
@@ -35,8 +38,19 @@
         "concept": {"type": "string"},
         "style": {"type": "string"},
         "approved": {"type": "boolean"},
-        "approved_at": {"type": ["string", "null"]},
-        "canonical_reference": {"type": ["string", "null"]}
+        "approved_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "canonical_reference": {"type": ["string", "null"]},
+        "canonical_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "supporting_references": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
       },
       "additionalProperties": true
     },
@@ -45,7 +59,11 @@
       "required": ["chroma_key", "chroma_threshold", "completed_states"],
       "properties": {
         "chroma_key": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
-        "chroma_threshold": {"type": "number", "minimum": 0},
+        "chroma_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 441.7
+        },
         "completed_states": {
           "type": "array",
           "items": {"type": "string"},
@@ -65,8 +83,14 @@
       },
       "additionalProperties": true
     },
-    "current_build": {"type": ["string", "null"]},
-    "accepted_build": {"type": ["string", "null"]},
+    "current_build": {
+      "type": ["string", "null"],
+      "pattern": "^build-[0-9]{4}$"
+    },
+    "accepted_build": {
+      "type": ["string", "null"],
+      "pattern": "^build-[0-9]{4}$"
+    },
     "active_edit": {"type": ["object", "null"]}
   },
   "additionalProperties": true

@@ -9,7 +9,10 @@ description = "Skills and deterministic tooling for creating and editing Codex D
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
-dependencies = ["Pillow>=10"]
+dependencies = [
+  "jsonschema>=4.23",
+  "Pillow>=10",
+]
 keywords = ["codex", "desktop-pet", "agent-skill", "sprite", "animation"]
 classifiers = [
   "Development Status :: 3 - Alpha",

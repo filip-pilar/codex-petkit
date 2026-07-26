@@ -8,14 +8,36 @@ import shutil
 import tempfile
 import uuid
 from datetime import UTC, datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable
+
+from jsonschema import Draft202012Validator, FormatChecker
 
 from petkit.contract import Contract, load_contract
 
 
+PACKAGE_ROOT = Path(__file__).resolve().parent
 PROJECT_FILE = "pet-project.json"
 IDENTITY_FILE = "identity.md"
+PROJECT_SCHEMA_FILE = PACKAGE_ROOT / "schemas" / "project.schema.json"
+PROJECT_FORMAT_CHECKER = FormatChecker()
+
+
+@PROJECT_FORMAT_CHECKER.checks("date-time")
+def is_datetime(value: object) -> bool:
+    if not isinstance(value, str):
+        return True
+    if not re.fullmatch(
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})",
+        value,
+    ):
+        return False
+    try:
+        parsed = datetime.fromisoformat(value[:-1] + "+00:00" if value.endswith("Z") else value)
+    except ValueError:
+        return False
+    return parsed.tzinfo is not None
 
 
 def now_iso() -> str:
@@ -88,33 +110,28 @@ def load_project(value: str | Path) -> tuple[Path, dict[str, Any]]:
     return path, project
 
 
+@lru_cache(maxsize=1)
+def project_validator() -> Draft202012Validator:
+    schema = read_json(PROJECT_SCHEMA_FILE)
+    Draft202012Validator.check_schema(schema)
+    return Draft202012Validator(schema, format_checker=PROJECT_FORMAT_CHECKER)
+
+
 def validate_project(project: dict[str, Any]) -> None:
-    required = {
-        "schema_version",
-        "id",
-        "display_name",
-        "description",
-        "contract_version",
-        "status",
-        "created_at",
-        "updated_at",
-        "identity",
-        "generation",
-    }
-    missing = sorted(required - project.keys())
-    if missing:
-        raise ValueError(f"project metadata is missing: {', '.join(missing)}")
-    if project["schema_version"] != 1:
-        raise ValueError(f"unsupported project schema: {project['schema_version']}")
-    if slugify(str(project["id"])) != project["id"]:
-        raise ValueError("project id is not a normalized slug")
-    if project["contract_version"] != 2:
-        raise ValueError("this workshop supports only pet contract version 2; run upgrade-project for an older local project")
-    load_contract(2)
-    if not isinstance(project["identity"], dict) or not isinstance(project["generation"], dict):
-        raise ValueError("project identity and generation fields must be objects")
-    if not isinstance(project.get("look"), dict):
-        raise ValueError("project look metadata must be an object")
+    errors = sorted(
+        project_validator().iter_errors(project),
+        key=lambda error: tuple(str(part) for part in error.absolute_path),
+    )
+    if errors:
+        error = errors[0]
+        location = ".".join(str(part) for part in error.absolute_path) or "<root>"
+        if location == "contract_version":
+            raise ValueError(
+                "this workshop supports only pet contract version 2; "
+                "run upgrade-project for an older local project"
+            )
+        raise ValueError(f"invalid project metadata at {location}: {error.message}")
+    load_contract(int(project["contract_version"]))
 
 
 def save_project(project_dir: Path, project: dict[str, Any]) -> None:
