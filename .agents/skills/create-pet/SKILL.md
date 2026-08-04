@@ -51,7 +51,9 @@ Never patch an individual direction cell. If one pose fails, regenerate its comp
 
 ## Build and review
 
-Run `petkit build`. The build must pass strict V2 validation and produces:
+During iteration, use `petkit build --draft` for a mechanically validated candidate. Candidates retain the immutable build record and fast inspection artifacts, may reuse exact unchanged previews, filmstrips, and despill cells from the current release, and never change the project's current/accepted pointers. A candidate cannot be reviewed, accepted, or installed; it is only for inspecting a generation attempt before committing to a release build.
+
+When the art is ready for proof, run `petkit build` (the release path). The release must pass strict V2 validation and produces:
 
 - contact sheet and all 11 GIF previews;
 - direction QA sheet with head zooms;
@@ -60,6 +62,8 @@ Run `petkit build`. The build must pass strict V2 validation and produces:
 - randomized anonymous semantic-recognition sheets/GIFs at full and approximate Codex UI size, with calibration controls and a private state answer key;
 - row-registration and one-pass despill reports;
 - frame-level change report.
+
+The release builder records source/build-input hashes, performs the deterministic despill once per changed atlas cell, and reuses only hash-verified unchanged inspection artifacts. These optimizations do not relax any art or review gate.
 
 Perform three independent, context-isolated blind direction reviews using only the blind sheet—never disclose labels, generation prompts, or the answer key. Give each worker a private copy of `blind-verdict-template.json` and combine them by strict majority. A separate reviewer fills direction semantics.
 

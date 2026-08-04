@@ -127,6 +127,29 @@ def _generation_status(project_dir: Path, project: dict[str, Any], contract: Con
             "complete": len(files) == state.frame_count,
             "row_source": str(row_source) if row_source is not None and row_source.is_file() else None,
         }
+    candidates: list[dict[str, Any]] = []
+    builds_dir = project_dir / "builds"
+    candidate_dirs = sorted(builds_dir.glob("build-*")) if builds_dir.is_dir() else []
+    for build_dir in candidate_dirs:
+        record_path = build_dir / "build.json"
+        if not record_path.is_file():
+            continue
+        try:
+            record = json.loads(record_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if (
+            isinstance(record, dict)
+            and record.get("pet_id") == project["id"]
+            and record.get("build_kind") == "candidate"
+        ):
+            candidates.append(
+                {
+                    "build_id": record.get("build_id"),
+                    "created_at": record.get("created_at"),
+                    "previous_build": record.get("previous_build"),
+                }
+            )
     return {
         "ok": True,
         "project": str(project_dir),
@@ -136,6 +159,7 @@ def _generation_status(project_dir: Path, project: dict[str, Any], contract: Con
         "canonical_reference": project["identity"].get("canonical_reference"),
         "current_build": project.get("current_build"),
         "accepted_build": project.get("accepted_build"),
+        "candidate_builds": candidates,
         "states": states,
         "look_gates": {
             "mechanics": isinstance(project.get("look", {}).get("mechanics"), dict),
@@ -540,7 +564,7 @@ def cmd_preview_state(args: argparse.Namespace) -> None:
 
 
 def cmd_build(args: argparse.Namespace) -> None:
-    emit(build_project(args.project))
+    emit(build_project(args.project, draft=args.draft))
 
 
 def cmd_plan_edit(args: argparse.Namespace) -> None:
@@ -568,6 +592,7 @@ def cmd_review_directions(args: argparse.Namespace) -> None:
             semantic_verdicts=args.semantic_verdict,
             independent_visual_qas=args.independent_visual_qa,
             continuity_override_note=args.continuity_override_note,
+            inherit_direction_from=args.inherit_direction_from,
         )
     )
 
@@ -789,6 +814,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     command = subparsers.add_parser("build", help="Create an immutable validated build")
     command.add_argument("--project", required=True)
+    command.add_argument(
+        "--draft",
+        action="store_true",
+        help="Create a mechanically validated candidate that cannot be reviewed, accepted, or installed",
+    )
     command.set_defaults(func=cmd_build)
 
     command = subparsers.add_parser("plan-edit", help="Record and enforce the allowed scope of an edit")
@@ -809,11 +839,12 @@ def build_parser() -> argparse.ArgumentParser:
     command = subparsers.add_parser("review-directions", help="Combine blind V2 direction reviews and record independent semantic/visual QA")
     command.add_argument("--project", required=True)
     command.add_argument("--build-id", required=True)
-    command.add_argument("--direction-semantics", type=path_arg, required=True)
-    command.add_argument("--blind-verdict", type=path_arg, action="append", required=True)
+    command.add_argument("--direction-semantics", type=path_arg)
+    command.add_argument("--blind-verdict", type=path_arg, action="append", default=[])
     command.add_argument("--semantic-verdict", type=path_arg, action="append", required=True)
     command.add_argument("--independent-visual-qa", type=path_arg, action="append", required=True)
     command.add_argument("--continuity-override-note", default="")
+    command.add_argument("--inherit-direction-from", help="Reuse a reviewed parent direction scope when neutral/look pixels and build inputs are unchanged")
     command.set_defaults(func=cmd_review_directions)
 
     command = subparsers.add_parser("compare", help="Compare two atlases at frame granularity")

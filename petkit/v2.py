@@ -93,6 +93,9 @@ def assemble_v2(
     output_dir: Path,
     chroma_key: str,
     chroma_threshold: float,
+    previous_raw: Path | None = None,
+    previous_output: Path | None = None,
+    previous_report: Path | None = None,
 ) -> dict[str, str]:
     registered = output_dir / "registered-look-row-9.png"
     registration = output_dir / "look-registration.json"
@@ -123,16 +126,22 @@ def assemble_v2(
             "--chroma-threshold", str(chroma_threshold),
         ),
     )
-    run_script(
-        "despill_chroma_edges.py",
-        (
-            raw,
-            "--output", png,
-            "--webp-output", webp,
-            "--json-out", despill,
-            "--chroma-key", chroma_key,
-        ),
-    )
+    despill_arguments: list[str | Path] = [
+        raw,
+        "--output", png,
+        "--webp-output", webp,
+        "--json-out", despill,
+        "--chroma-key", chroma_key,
+    ]
+    if previous_raw is not None and previous_output is not None and previous_report is not None:
+        despill_arguments.extend(
+            (
+                "--previous-raw", previous_raw,
+                "--previous-output", previous_output,
+                "--previous-report", previous_report,
+            )
+        )
+    run_script("despill_chroma_edges.py", despill_arguments)
     return {
         "registered_row_9": str(registered),
         "registration": str(registration),

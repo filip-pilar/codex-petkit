@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from petkit.build import accept_build, build_project, install_build, review_directions, rollback_install
 from petkit.contract import load_contract
@@ -123,35 +124,38 @@ class WorkflowTests(unittest.TestCase):
             }
         save_project(self.project, project)
 
-    def review(self, build: dict[str, object]) -> None:
+    def review(self, build: dict[str, object], *, inherit_direction_from: str | None = None) -> None:
         build_dir = Path(str(build["build_dir"]))
         atlas_hash = sha256_file(build_dir / "spritesheet.webp")
-        answer = json.loads((build_dir / "qa-private" / "direction-blind-answer-key.json").read_text(encoding="utf-8"))
-        verdict = {
-            "pairs": [
-                {"pair": pair["pair"], "A": pair["A"]["expected_direction"], "B": pair["B"]["expected_direction"]}
-                for pair in answer["pairs"]
-            ]
-        }
         verdicts = []
-        for index in range(3):
-            path = self.root / f"blind-{index}.json"
-            path.write_text(json.dumps(verdict), encoding="utf-8")
-            verdicts.append(path)
         semantics = self.root / "semantics.json"
-        semantics.write_text(
-            json.dumps(
-                {
-                    "atlas_sha256": atlas_hash,
-                    "reviewer_independent": True,
-                    "directions": [
-                        {"degrees": degrees, "observed": f"fixture-{degrees}", "pass": True}
-                        for degrees in self.contract.look_directions_degrees
-                    ],
-                }
-            ),
-            encoding="utf-8",
-        )
+        if inherit_direction_from is None:
+            answer = json.loads((build_dir / "qa-private" / "direction-blind-answer-key.json").read_text(encoding="utf-8"))
+            verdict = {
+                "pairs": [
+                    {"pair": pair["pair"], "A": pair["A"]["expected_direction"], "B": pair["B"]["expected_direction"]}
+                    for pair in answer["pairs"]
+                ]
+            }
+            for index in range(3):
+                path = self.root / f"blind-{index}.json"
+                path.write_text(json.dumps(verdict), encoding="utf-8")
+                verdicts.append(path)
+            semantics.write_text(
+                json.dumps(
+                    {
+                        "atlas_sha256": atlas_hash,
+                        "reviewer_independent": True,
+                        "directions": [
+                            {"degrees": degrees, "observed": f"fixture-{degrees}", "pass": True}
+                            for degrees in self.contract.look_directions_degrees
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+        else:
+            semantics = None
         semantic_answer = json.loads((build_dir / "qa-private" / "semantic-recognition-answer-key.json").read_text(encoding="utf-8"))
         semantic = self.root / "semantic.json"
         semantic.write_text(
@@ -288,6 +292,7 @@ class WorkflowTests(unittest.TestCase):
             semantic_verdicts=semantic_paths,
             independent_visual_qas=visual_paths,
             continuity_override_note="Synthetic geometry intentionally triggers continuity warnings.",
+            inherit_direction_from=inherit_direction_from,
         )
 
     def test_partial_work_is_resumable(self) -> None:
@@ -394,20 +399,35 @@ class WorkflowTests(unittest.TestCase):
             text=True,
         )
         replacement_record = json.loads(replaced.stdout)
+        candidate = build_project(self.project, draft=True)
+        self.assertEqual(candidate["build_kind"], "candidate")
+        candidate_record = json.loads((Path(candidate["build_dir"]) / "build.json").read_text(encoding="utf-8"))
+        self.assertEqual(candidate_record["artifact_reuse"]["parent_build"], first["build_id"])
+        self.assertIn("idle", candidate_record["artifact_reuse"]["preview_states"])
+        self.assertNotIn("waving", candidate_record["artifact_reuse"]["preview_states"])
+        self.assertEqual(candidate_record["direction_qa"], {})
+        with self.assertRaisesRegex(ValueError, "candidate builds"):
+            accept_build(self.project, candidate["build_id"], confirm_visual_qa=True, review_note="candidate")
+        _, candidate_project = load_project(self.project)
+        self.assertEqual(candidate_project["current_build"], first["build_id"])
         second = build_project(self.project)
         self.assertEqual(second["change_report"]["changed_states"], {"waving": [0]})
         self.assertTrue(second["change_report"]["edit_scope"]["scope_ok"])
         second_dir = Path(second["build_dir"])
         self.assertTrue((second_dir / "before-after.png").is_file())
         persisted_change = json.loads((second_dir / "change-report.json").read_text(encoding="utf-8"))
-        self.assertEqual(persisted_change["before"], "../build-0001/spritesheet.webp")
+        self.assertEqual(persisted_change["before"], f"../{first['build_id']}/spritesheet.webp")
         self.assertEqual(persisted_change["after"], "spritesheet.webp")
         _, review_project = load_project(self.project)
         self.assertEqual(review_project["current_build"], second["build_id"])
         self.assertEqual(review_project["accepted_build"], first["build_id"])
         self.assertEqual(sha256_file(self.project / "source" / "frames" / "idle" / "00.png"), idle_before)
         self.assertEqual(sha256_file(self.project / "source" / "frames" / "running" / "00.png"), running_before)
-        self.review(second)
+        self.review(second, inherit_direction_from=first["build_id"])
+        second_review = json.loads(
+            (self.project / "reviews" / str(second["build_id"]) / "review-summary.json").read_text(encoding="utf-8")
+        )
+        self.assertTrue(second_review["direction_review_inherited"])
         accept_build(
             self.project,
             second["build_id"],
@@ -568,8 +588,10 @@ class WorkflowTests(unittest.TestCase):
             capture_output=True,
             text=True,
         )
-        with self.assertRaisesRegex(ValueError, "outside its recorded scope: idle"):
-            build_project(self.project)
+        with patch("petkit.build.assemble_v2") as assemble:
+            with self.assertRaisesRegex(ValueError, "outside its recorded scope before build: idle"):
+                build_project(self.project)
+            assemble.assert_not_called()
         self.assertFalse((self.project / "builds" / "build-0002").exists())
         _, project = load_project(self.project)
         self.assertEqual(project["current_build"], baseline["build_id"])

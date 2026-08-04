@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -13,6 +14,7 @@ from PIL import Image, ImageFilter
 CELL_WIDTH = 192
 CELL_HEIGHT = 208
 ALGORITHM = "edge-local-chroma-spill-suppression"
+PROCESSING_VERSION = 2
 
 
 def parse_hex_color(value: str) -> tuple[int, int, int]:
@@ -121,10 +123,11 @@ def suppress_boundary_spill(
     cell_width = CELL_WIDTH if width % CELL_WIDTH == 0 else width
     cell_height = CELL_HEIGHT if height % CELL_HEIGHT == 0 else height
 
+    pending_indices = [index for index, is_pending in enumerate(pending) if is_pending]
     for _ in range(edge_radius * 2 + 1):
         updates: list[tuple[int, tuple[float, float, float]]] = []
-        for index, is_pending in enumerate(pending):
-            if not is_pending:
+        for index in pending_indices:
+            if not pending[index]:
                 continue
             x = index % width
             y = index // width
@@ -183,15 +186,13 @@ def suppress_boundary_spill(
     return output, suppressed
 
 
-def decontaminate_image(
-    image: Image.Image,
+def _validate_parameters(
     *,
-    chroma_key: tuple[int, int, int],
-    strength: float = 1,
-    edge_radius: int = 5,
-    spill_tolerance: float = 0.15,
-    minimum_saturation: float = 0.1,
-) -> tuple[Image.Image, dict[str, object]]:
+    strength: float,
+    edge_radius: int,
+    spill_tolerance: float,
+    minimum_saturation: float,
+) -> None:
     if not 0 <= strength <= 1:
         raise ValueError("strength must be between 0 and 1")
     if edge_radius < 1:
@@ -201,10 +202,31 @@ def decontaminate_image(
     if minimum_saturation < 0:
         raise ValueError("minimum_saturation must not be negative")
 
+
+def decontaminate_image(
+    image: Image.Image,
+    *,
+    chroma_key: tuple[int, int, int],
+    strength: float = 1,
+    edge_radius: int = 5,
+    spill_tolerance: float = 0.15,
+    minimum_saturation: float = 0.1,
+    boundary: list[bool] | None = None,
+) -> tuple[Image.Image, dict[str, object]]:
+    _validate_parameters(
+        strength=strength,
+        edge_radius=edge_radius,
+        spill_tolerance=spill_tolerance,
+        minimum_saturation=minimum_saturation,
+    )
+
     rgba = image.convert("RGBA")
     width, _ = rgba.size
     source = list(rgba.getdata())
-    boundary = atlas_edge_band(rgba.getchannel("A"), edge_radius)
+    if boundary is None:
+        boundary = atlas_edge_band(rgba.getchannel("A"), edge_radius)
+    if len(boundary) != rgba.width * rgba.height:
+        raise ValueError("edge boundary does not match image dimensions")
     key_linear = tuple(srgb_to_linear(channel / 255) for channel in chroma_key)
     output_pixels, suppressed = suppress_boundary_spill(
         source,
@@ -237,6 +259,7 @@ def decontaminate_image(
     output.putdata(output_pixels)
     return output, {
         "algorithm": ALGORITHM,
+        "processing_version": PROCESSING_VERSION,
         "strength": strength,
         "edge_radius": edge_radius,
         "spill_tolerance": spill_tolerance,
@@ -248,6 +271,182 @@ def decontaminate_image(
         "changed_by_cell": dict(
             sorted(changed_by_cell.items(), key=lambda item: item[1], reverse=True)
         ),
+        "alpha_preserved": True,
+    }
+
+
+def _cell_box(index: int, width: int) -> tuple[int, int, int, int]:
+    columns = width // CELL_WIDTH
+    row, column = divmod(index, columns)
+    left = column * CELL_WIDTH
+    top = row * CELL_HEIGHT
+    return left, top, left + CELL_WIDTH, top + CELL_HEIGHT
+
+
+def _cell_boundary(boundary: list[bool], width: int, box: tuple[int, int, int, int]) -> list[bool]:
+    left, top, right, bottom = box
+    return [
+        boundary[y * width + x]
+        for y in range(top, bottom)
+        for x in range(left, right)
+    ]
+
+
+def _cell_key(
+    image: Image.Image,
+    boundary: list[bool],
+    *,
+    chroma_key: tuple[int, int, int],
+    strength: float,
+    edge_radius: int,
+    spill_tolerance: float,
+    minimum_saturation: float,
+) -> str:
+    digest = hashlib.sha256()
+    digest.update(str(PROCESSING_VERSION).encode("ascii"))
+    digest.update(repr((chroma_key, strength, edge_radius, spill_tolerance, minimum_saturation)).encode("utf-8"))
+    digest.update(image.tobytes())
+    digest.update(bytes(1 if value else 0 for value in boundary))
+    return digest.hexdigest()
+
+
+def decontaminate_atlas(
+    image: Image.Image,
+    *,
+    chroma_key: tuple[int, int, int],
+    strength: float = 1,
+    edge_radius: int = 5,
+    spill_tolerance: float = 0.15,
+    minimum_saturation: float = 0.1,
+    previous_raw: Image.Image | None = None,
+    previous_output: Image.Image | None = None,
+    previous_report: dict[str, object] | None = None,
+) -> tuple[Image.Image, dict[str, object]]:
+    """Process an atlas cell-by-cell while reusing exact unchanged cells.
+
+    The supplied boundary mask is computed with the original atlas-wide rules,
+    then each cell is processed with the same cell-local neighbor restriction as
+    the historical full-atlas implementation. This keeps the pixel operation
+    equivalent while making reuse safe at cell granularity.
+    """
+    _validate_parameters(
+        strength=strength,
+        edge_radius=edge_radius,
+        spill_tolerance=spill_tolerance,
+        minimum_saturation=minimum_saturation,
+    )
+    rgba = image.convert("RGBA")
+    if rgba.width % CELL_WIDTH or rgba.height % CELL_HEIGHT:
+        return decontaminate_image(
+            rgba,
+            chroma_key=chroma_key,
+            strength=strength,
+            edge_radius=edge_radius,
+            spill_tolerance=spill_tolerance,
+            minimum_saturation=minimum_saturation,
+        )
+
+    boundary = atlas_edge_band(rgba.getchannel("A"), edge_radius)
+    previous_rgba = previous_raw.convert("RGBA") if previous_raw is not None else None
+    previous_cleaned = previous_output.convert("RGBA") if previous_output is not None else None
+    previous_boundary = (
+        atlas_edge_band(previous_rgba.getchannel("A"), edge_radius)
+        if previous_rgba is not None and previous_rgba.size == rgba.size
+        else None
+    )
+    previous_cells = previous_report.get("cell_reports") if isinstance(previous_report, dict) else None
+    if not isinstance(previous_cells, dict):
+        previous_cells = {}
+    previous_version = previous_report.get("processing_version") if isinstance(previous_report, dict) else None
+    cache_allowed = (
+        previous_rgba is not None
+        and previous_cleaned is not None
+        and previous_rgba.size == rgba.size
+        and previous_cleaned.size == rgba.size
+        and previous_version == PROCESSING_VERSION
+        and bool(previous_cells)
+    )
+
+    output = Image.new("RGBA", rgba.size, (0, 0, 0, 0))
+    columns = rgba.width // CELL_WIDTH
+    rows = rgba.height // CELL_HEIGHT
+    cache_hits = 0
+    cache_misses = 0
+    cell_reports: dict[str, dict[str, object]] = {}
+    total_changed = 0
+    total_decontaminated = 0
+    total_suppressed = 0
+
+    for index in range(columns * rows):
+        box = _cell_box(index, rgba.width)
+        label = f"r{index // columns}c{index % columns}"
+        current_cell = rgba.crop(box)
+        current_boundary = _cell_boundary(boundary, rgba.width, box)
+        key = _cell_key(
+            current_cell,
+            current_boundary,
+            chroma_key=chroma_key,
+            strength=strength,
+            edge_radius=edge_radius,
+            spill_tolerance=spill_tolerance,
+            minimum_saturation=minimum_saturation,
+        )
+        previous_key = None
+        if cache_allowed and previous_boundary is not None:
+            previous_box = box
+            previous_cell = previous_rgba.crop(previous_box)
+            previous_cell_boundary = _cell_boundary(previous_boundary, rgba.width, previous_box)
+            previous_key = _cell_key(
+                previous_cell,
+                previous_cell_boundary,
+                chroma_key=chroma_key,
+                strength=strength,
+                edge_radius=edge_radius,
+                spill_tolerance=spill_tolerance,
+                minimum_saturation=minimum_saturation,
+            )
+        if previous_key == key and label in previous_cells:
+            cleaned_cell = previous_cleaned.crop(box)
+            cell_report = dict(previous_cells[label])
+            cache_hits += 1
+        else:
+            cleaned_cell, cell_report = decontaminate_image(
+                current_cell,
+                chroma_key=chroma_key,
+                strength=strength,
+                edge_radius=edge_radius,
+                spill_tolerance=spill_tolerance,
+                minimum_saturation=minimum_saturation,
+                boundary=current_boundary,
+            )
+            cache_misses += 1
+        output.paste(cleaned_cell, (box[0], box[1]))
+        cell_report["cache_key"] = key
+        cell_reports[label] = cell_report
+        total_changed += int(cell_report.get("changed_pixels", 0))
+        total_decontaminated += int(cell_report.get("decontaminated_pixels", 0))
+        total_suppressed += int(cell_report.get("spill_suppressed_pixels", 0))
+
+    changed_by_cell = {
+        label: int(record.get("changed_pixels", 0))
+        for label, record in cell_reports.items()
+        if int(record.get("changed_pixels", 0))
+    }
+    return output, {
+        "algorithm": ALGORITHM,
+        "processing_version": PROCESSING_VERSION,
+        "strength": strength,
+        "edge_radius": edge_radius,
+        "spill_tolerance": spill_tolerance,
+        "minimum_saturation": minimum_saturation,
+        "changed_pixels": total_changed,
+        "decontaminated_pixels": total_decontaminated,
+        "spill_suppressed_pixels": total_suppressed,
+        "rejected_pixels": 0,
+        "changed_by_cell": dict(sorted(changed_by_cell.items(), key=lambda item: item[1], reverse=True)),
+        "cell_reports": cell_reports,
+        "cache_hits": cache_hits,
+        "cache_misses": cache_misses,
         "alpha_preserved": True,
     }
 
@@ -267,6 +466,9 @@ def main() -> None:
     parser.add_argument("--webp-output")
     parser.add_argument("--json-out")
     parser.add_argument("--chroma-key", required=True)
+    parser.add_argument("--previous-raw")
+    parser.add_argument("--previous-output")
+    parser.add_argument("--previous-report")
     parser.add_argument("--strength", type=float, default=1)
     parser.add_argument("--edge-radius", type=int, default=5)
     parser.add_argument("--spill-tolerance", type=float, default=0.15)
@@ -274,15 +476,36 @@ def main() -> None:
     args = parser.parse_args()
 
     input_path = Path(args.input).expanduser().resolve()
+    previous_raw_path = Path(args.previous_raw).expanduser().resolve() if args.previous_raw else None
+    previous_output_path = Path(args.previous_output).expanduser().resolve() if args.previous_output else None
+    previous_report_path = Path(args.previous_report).expanduser().resolve() if args.previous_report else None
+    previous_report = None
+    if previous_report_path and previous_report_path.is_file():
+        previous_report = json.loads(previous_report_path.read_text(encoding="utf-8"))
+    chroma_key = parse_hex_color(args.chroma_key)
     with Image.open(input_path) as opened:
-        cleaned, report = decontaminate_image(
-            opened,
-            chroma_key=parse_hex_color(args.chroma_key),
-            strength=args.strength,
-            edge_radius=args.edge_radius,
-            spill_tolerance=args.spill_tolerance,
-            minimum_saturation=args.minimum_saturation,
-        )
+        if previous_raw_path and previous_output_path and previous_raw_path.is_file() and previous_output_path.is_file():
+            with Image.open(previous_raw_path) as previous_raw_opened, Image.open(previous_output_path) as previous_output_opened:
+                cleaned, report = decontaminate_atlas(
+                    opened,
+                    chroma_key=chroma_key,
+                    strength=args.strength,
+                    edge_radius=args.edge_radius,
+                    spill_tolerance=args.spill_tolerance,
+                    minimum_saturation=args.minimum_saturation,
+                    previous_raw=previous_raw_opened,
+                    previous_output=previous_output_opened,
+                    previous_report=previous_report,
+                )
+        else:
+            cleaned, report = decontaminate_atlas(
+                opened,
+                chroma_key=chroma_key,
+                strength=args.strength,
+                edge_radius=args.edge_radius,
+                spill_tolerance=args.spill_tolerance,
+                minimum_saturation=args.minimum_saturation,
+            )
 
     output_path = Path(args.output).expanduser().resolve()
     save_image(cleaned, output_path)

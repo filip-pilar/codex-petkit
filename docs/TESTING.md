@@ -2,7 +2,7 @@
 
 Run `python3 -m unittest discover -s tests -v`.
 
-The suite covers the V2-only contract; 8×11 geometry and neutral cell; unused-cell transparency; exact extraction/recomposition; partial resume; semantic design/capability/key-pose gates; exact duplicate-beat and standard-edge rejection; cardinal/row sequencing; full registered assembly; strict V2 validation; one final despill; 11 previews; direction QA artifacts; three-vote blind majority; anonymous full/UI-size semantic recognition and calibration rejection; independent semantics/final QA; acceptance gating; frame-granular edit scope; install backup/rollback; malicious package paths; and linked-variant isolation.
+The suite covers the V2-only contract; 8×11 geometry and neutral cell; unused-cell transparency; exact extraction/recomposition; partial resume; semantic design/capability/key-pose gates; exact duplicate-beat and standard-edge rejection; cardinal/row sequencing; full registered assembly; strict V2 validation; cellwise despill parity and cache reuse; 11 previews; direction QA artifacts; three-vote blind majority; anonymous full/UI-size semantic recognition and calibration rejection; independent semantics/final QA; candidate-build isolation/rejection; hash-verified artifact reuse; safe direction-review inheritance; early edit-scope rejection; acceptance gating; frame-granular edit scope; install backup/rollback; malicious package paths; and linked-variant isolation.
 
 Synthetic fixture art tests deterministic behavior only. Production art must come from `$imagegen` or user sources.
 

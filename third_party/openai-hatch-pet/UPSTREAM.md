@@ -21,3 +21,5 @@ The project owns its editable-project model, orchestration, CLI, build lineage, 
 - `validate_atlas.py`
 
 `petkit/references/v2/animation-rows.md` is the matching retained format reference. `SHA256SUMS` identifies the exact retained files. The snapshot is provenance only and there is no runtime synchronization with an installed skill.
+
+The project intentionally diverges from the retained `despill_chroma_edges.py` snapshot: processing version 2 preserves the original pixel results while limiting repeated work to pending edge pixels, processing atlas cells with an atlas-wide boundary mask, and reusing cells only when their raw pixels, boundary mask, and parameters match. The divergence is local performance and cacheability work; the parity regression in `tests/test_despill.py` guards the output contract.

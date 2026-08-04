@@ -343,6 +343,22 @@ def plan_edit(
     allowed = list(dict.fromkeys(allowed_states))
     for state_id in allowed:
         contract.state(state_id)
+    baseline_record: dict[str, Any] = {}
+    baseline_record_path = project_dir / "builds" / str(baseline) / "build.json"
+    if baseline_record_path.is_file():
+        try:
+            loaded = json.loads(baseline_record_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"baseline build record is not valid JSON: {baseline_record_path}") from exc
+        if isinstance(loaded, dict):
+            baseline_record = loaded
+    look_fingerprint_payload = {
+        "identity": project.get("identity", {}).get("canonical_sha256"),
+        "look": project.get("look", {}),
+    }
+    baseline_look_fingerprint = hashlib.sha256(
+        json.dumps(look_fingerprint_payload, sort_keys=True).encode("utf-8")
+    ).hexdigest()
     edit_id = f"edit-{now_iso().replace(':', '').replace('-', '')}-{uuid.uuid4().hex[:8]}"
     record = {
         "schema_version": 1,
@@ -355,6 +371,9 @@ def plan_edit(
         "latest_build": None,
         "allowed_states": allowed,
         "invariants": [item.strip() for item in invariants if item.strip()],
+        "baseline_source_sha256": baseline_record.get("source_sha256"),
+        "baseline_build_inputs": baseline_record.get("build_inputs"),
+        "baseline_look_metadata_fingerprint": baseline_look_fingerprint,
     }
     relative = Path("history") / "edit-scopes" / f"{edit_id}.json"
     atomic_write_json(project_dir / relative, record)

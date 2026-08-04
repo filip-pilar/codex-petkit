@@ -462,13 +462,22 @@ def make_contact_sheet(atlas_path: Path, output: Path, contract: Contract, scale
     return {"ok": True, "contact_sheet": str(output)}
 
 
-def make_standard_filmstrips(frames_root: Path, output_dir: Path, contract: Contract) -> dict[str, Any]:
+def make_standard_filmstrips(
+    frames_root: Path,
+    output_dir: Path,
+    contract: Contract,
+    *,
+    state_ids: Iterable[str] | None = None,
+) -> dict[str, Any]:
     """Render one lossless, normal-cell-size labeled strip per standard state."""
     output_dir.mkdir(parents=True, exist_ok=True)
     outputs: dict[str, str] = {}
     header_height = 30
     font = ImageFont.load_default()
+    selected = set(state_ids) if state_ids is not None else None
     for state in contract.standard_states:
+        if selected is not None and state.id not in selected:
+            continue
         frames = load_state_frames(frames_root, state, contract)
         width = state.frame_count * contract.cell_width
         strip = Image.new("RGB", (width, header_height + contract.cell_height), "white")
@@ -519,11 +528,15 @@ def render_previews(
     scale: int = 2,
     *,
     standard_only: bool = False,
+    state_ids: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
     outputs: dict[str, str] = {}
     states = contract.standard_states if standard_only else contract.states
+    selected = set(state_ids) if state_ids is not None else None
     for state in states:
+        if selected is not None and state.id not in selected:
+            continue
         frames = load_state_frames(frames_root, state, contract)
         rendered: list[Image.Image] = []
         for frame in frames:

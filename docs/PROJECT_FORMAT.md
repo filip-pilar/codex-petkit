@@ -10,7 +10,7 @@ source/frames/<standard-state>/  exact nine-row standard animation frames
 source/rows/                      versioned standard and coherent look-row sources
 source/cardinals/                approved 000/090/180/270 anchor strip
 source/look-mechanics.json       ordered eye/head/body turn specification
-builds/build-NNNN/               immutable V2 package and deterministic QA
+builds/build-NNNN/               immutable V2 release or mechanical candidate
 reviews/build-NNNN/              anonymous semantic verdicts, independent semantics, blind votes, final QA
 history/                         events, acceptance, edit scopes, source backups
 backups/installed/               packages displaced by install or rollback
@@ -25,9 +25,9 @@ Projects progress `brief → identity-approved → generating → review → acc
 
 ## V2 builds
 
-Each immutable build contains the installable `pet.json` and `spritesheet.webp`, PNG inspection atlas, strict and local validation, source and registered-frame inspection, contact sheet, nine normal-cell-size standard filmstrips, 11 GIFs, registration/despill reports, labeled and blind direction sheets, anonymous full/UI semantic sheets and previews, inert/repetitive/cropped/identity-drift calibration controls, hidden direction and semantic answer keys, continuity measurements, change report, and source hashes.
+Each release build contains the installable `pet.json` and `spritesheet.webp`, PNG inspection atlas, strict and local validation, source and registered-frame inspection, contact sheet, nine normal-cell-size standard filmstrips, 11 GIFs, registration/despill reports, labeled and blind direction sheets, anonymous full/UI semantic sheets and previews, inert/repetitive/cropped/identity-drift calibration controls, hidden direction and semantic answer keys, continuity measurements, change report, source/build-input hashes, and hash-verified artifact-reuse metadata. `petkit build --draft` creates an immutable mechanical candidate with the same deterministic validation and inspectable previews/filmstrips, but omits human-review artifact generation; candidate builds cannot be reviewed, accepted, or installed and never move the project pointers.
 
-The project records current and last-accepted builds separately. An edit build cannot erase the accepted pointer. `plan-edit` records allowed states and `build` rejects any out-of-scope pixel change. Direction, visual, and semantic reviews are stored outside the immutable build and are hash-bound to that atlas. Three prompt-blind visual verdicts and three anonymous semantic verdicts must pass unanimously.
+The project records current and last-accepted builds separately. An edit build cannot erase the accepted pointer. `plan-edit` records allowed states and `build` rejects any out-of-scope source/dependency change before assembly and any out-of-scope pixel change after comparison. Direction, visual, and semantic reviews are stored outside the immutable build and are hash-bound to that atlas. Three prompt-blind visual verdicts and three anonymous semantic verdicts must pass unanimously. Direction evidence may be inherited only when the neutral/look cell hashes and build inputs match a previously reviewed release; inherited evidence is retained under the new review with explicit lineage.
 
 ## Look-row ownership
 
