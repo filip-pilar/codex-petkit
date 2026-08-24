@@ -243,6 +243,7 @@ def make_semantic_recognition_artifacts(
     private_dir: Path,
     contract: Contract,
     atlas_hash: str,
+    canonical_identity_sha256: str | None = None,
 ) -> dict[str, str]:
     """Create anonymous full/UI-size semantic-review assets and a private key.
 
@@ -303,11 +304,17 @@ def make_semantic_recognition_artifacts(
         )
 
     answer_key = private_dir / "semantic-recognition-answer-key.json"
+    identity_binding = (
+        {"canonical_identity_sha256": canonical_identity_sha256}
+        if canonical_identity_sha256 is not None
+        else {}
+    )
     atomic_write_json(
         answer_key,
         {
             "schema_version": SEMANTIC_REVIEW_VERSION,
             "atlas_sha256": atlas_hash,
+            **identity_binding,
             "clips": [{"token": clip["token"], "state": state.id} for clip, state in zip(clips, states)],
             "controls": controls,
         },
@@ -315,6 +322,7 @@ def make_semantic_recognition_artifacts(
     manifest = {
         "schema_version": SEMANTIC_REVIEW_VERSION,
         "atlas_sha256": atlas_hash,
+        **identity_binding,
         "state_options": SEMANTIC_STATE_OPTIONS,
         "clips": clips,
         "full_sheet": str(full_sheet.relative_to(output_dir)),
@@ -327,6 +335,7 @@ def make_semantic_recognition_artifacts(
     template = {
         "schema_version": SEMANTIC_REVIEW_VERSION,
         "atlas_sha256": atlas_hash,
+        **identity_binding,
         "reviewer_id": "replace with the independent reviewer's identifier",
         "reviewer_independent": True,
         "pass": False,

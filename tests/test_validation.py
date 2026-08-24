@@ -106,15 +106,9 @@ class ValidationTests(unittest.TestCase):
     def test_visual_qa_accepts_complete_state_distinction_evidence(self) -> None:
         validate_visual_qa(self.valid_visual_qa(), "fixture-hash")
 
-    def test_visual_qa_rejects_the_previous_locky_review_schema(self) -> None:
+    def test_visual_qa_rejects_prompt_or_motion_plan_leakage(self) -> None:
         payload = self.valid_visual_qa()
-        del payload["review_inputs"]
-        for state in payload["standard_states"]:  # type: ignore[union-attr]
-            state.pop("frame_observations")
-            state.pop("transition_observations")
-            state.pop("quality_gates")
-        payload["scale_consistency"] = {"pass": True, "note": "looked stable"}
-        del payload["cross_state_consistency"]
+        payload["review_inputs"]["prompts_or_motion_plan_seen"] = True  # type: ignore[index]
         with self.assertRaisesRegex(ValueError, "without prompt or motion-plan leakage"):
             validate_visual_qa(payload, "fixture-hash")
 

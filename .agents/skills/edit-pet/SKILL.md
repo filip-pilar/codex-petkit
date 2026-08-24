@@ -17,9 +17,11 @@ Change an existing V2 pet while preserving identity, unaffected frames, accepted
 
 ## Locate and scope
 
-Run `petkit status`. If the editable project predates V2, run the one-way `petkit upgrade-project`; this preserves its nine standard source rows and immutable history, then requires new V2 look production. If only an installed package exists, only a V2 package may be imported.
+Run `petkit status` and follow its phase-specific blockers rather than inferring readiness from the status label. PetKit serializes mutating commands per project; do not edit project sources manually while one is running. A build consumes a verified private input snapshot and aborts if live authority drifts before publication. If a build, identity approval, or variant command is cancelled, allow it to finish transaction recovery before retrying; the next mutation also reconciles any durable `.petkit-recovery` marker. A cancellation note identifies a verified release, candidate, identity, or child variant that was already durably committed, while a transaction-recovery error names every stable path that still needs attention. Do not delete a reported preapproval identity path: it can contain the only prior canonical bytes needed by the next reconciliation attempt. If the editable project predates V2, run the one-way `petkit upgrade-project`; this preserves its nine standard source rows and immutable history, archives the pre-V2 accepted pointer, and requires new V2 look production plus a fresh V2 accepted baseline. If an older V2 baseline predates integrity binding, the same command archives that accepted pointer, clears its stale cardinal/row approvals, and starts a fresh reviewed V2 baseline. For an unaccepted legacy variant missing or predating the schema-2 fork snapshot, invoke `upgrade-project` only when its retained current sources and authority are ready to become the explicit owner-approved rebaseline; the command deliberately does not overwrite a valid schema-2 snapshot when the fork has drifted. If only an installed package exists, only a V2 package may be imported. An import is a repairable recovery bootstrap, not an unchanged fork or approved project: repair recovered pixels if necessary, complete its normal local gates, then build, review, and accept a project-local baseline before `plan-edit`.
 
 Before touching sources, read [edit-modes.md](references/edit-modes.md), then identify the deterministic, generative, or linked-variant mode; exact allowed states; identity invariants; and baseline build. Record it with `petkit plan-edit`. Treat `look-a` and `look-b` as whole-row scopes: a direction cell is never an allowed standalone generative scope.
+
+After an accepted baseline, changing the canonical identity invalidates its look approvals and review evidence. Prefer a new project or linked variant for that identity change. If it must remain in the same project, scope every state and complete fresh look approval, build, and review evidence.
 
 For a generative standard-row edit, renew the affected row's semantic design/capability evidence and key-pose review before building. A build cannot proceed without the project-local `qa/standard-motion-plan.md`, `qa/capability-audit.json`, `qa/key-pose-concepts.png`, and `qa/key-pose-review.json` gates.
 
@@ -43,7 +45,7 @@ Read [look-direction.md](references/look-direction.md). Preserve the recorded me
 
 ## Linked variant
 
-For a named alternate costume, palette, material, style, or recurring prop, use `petkit variant` first. Verify the new ID and parent link. The variant owns all later sources, builds, reviews, backups, and installation.
+For a named alternate costume, palette, material, style, or recurring prop, first ensure the parent has a current accepted release and no active edit, then use `petkit variant`. Variant creation revalidates the accepted build, review, acceptance, live source, authority, and build parameters before copying a private verified snapshot; repair any reported parent drift instead of bypassing it. Verify the new ID and parent link. The variant owns all later sources, builds, reviews, backups, and installation. Before changing the fork, build, review, and accept its unchanged sources as a child-local baseline; a parent build cannot serve as the variant's scoped-edit baseline.
 
 ## Build and prove scope
 
@@ -57,9 +59,13 @@ Every new build also needs exactly three anonymous semantic-recognition verdicts
 
 Read [review-gates.md](references/review-gates.md). Present the evidence and leave the build in review until the user accepts it. Then run `petkit accept` with explicit visual confirmation and a concrete note.
 
+Review publication is all-or-nothing. Acceptance revalidates the fresh semantic
+and visual evidence, reviewer records, atlas/canonical-identity bindings, and
+inherited direction lineage rather than trusting only the stored summary.
+
 ## Install or recover only on request
 
-Use `petkit install --target-root ~/.codex/pets` only after explicit direction. Report the backup. Use `petkit rollback` only when requested, and report restored and displaced packages.
+Use `petkit install --target-root ~/.codex/pets` only after explicit direction. Install rechecks the build-bound manifest and rejects a destination package path that overlaps the editable project. Report the backup. Use `petkit rollback` only when requested; it applies the same path-overlap guard, and you must report restored and displaced packages. A sidecar-free historical backup requires the owner to explicitly authorize `--allow-legacy-backup` after confirming its origin.
 
 ## Completion
 

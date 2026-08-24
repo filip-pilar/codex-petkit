@@ -56,6 +56,9 @@ accepted`. Resume authority comes from:
 python -m petkit status --project pets/<pet-id>
 ```
 
+`status` runs the same phase-aware preflight used by build, review, acceptance,
+and installation, and reports concrete blockers for each phase.
+
 ## V2 contract
 
 `petkit/contracts/v2.json` is the supported production contract:
@@ -86,7 +89,12 @@ python -m petkit install \
 ```
 
 Restart or reopen Codex if its pet list does not refresh. Installation backs up
-any displaced package; rollback is also explicit.
+any displaced package; rollback is also explicit. Install and rollback reject a
+resolved package path that equals, contains, or is contained by the editable
+project. Installation also rechecks the build-record hash of `pet.json` and its
+exact pet ID, V2 version, and spritesheet path. New backups are hash-bound;
+restoring a sidecar-free historical backup requires the explicit
+`rollback --allow-legacy-backup` option.
 
 ## Quality model
 

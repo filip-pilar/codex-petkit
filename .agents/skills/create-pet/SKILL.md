@@ -20,7 +20,7 @@ Create one new character identity and a complete V2 Codex pet project. Lead the 
 
 From the repository root, infer a stable slug, display name, description, and art direction when the request is sufficient. Ask only when a missing choice would materially change identity.
 
-For an existing project, run `python3 -m petkit status --project pets/<id>` and resume at the first incomplete gate. For a new project, run `petkit init` with all supplied references.
+For an existing project, run `python3 -m petkit status --project pets/<id>` and resume at the first incomplete gate. Treat its phase-specific blockers as authoritative; do not infer readiness from the status label alone. For a new project, run `petkit init` with all supplied references.
 
 ## Identity gate
 
@@ -65,11 +65,17 @@ When the art is ready for proof, run `petkit build` (the release path). The rele
 
 The release builder records source/build-input hashes, performs the deterministic despill once per changed atlas cell, and reuses only hash-verified unchanged inspection artifacts. These optimizations do not relax any art or review gate.
 
-Perform three independent, context-isolated blind direction reviews using only the blind sheet—never disclose labels, generation prompts, or the answer key. Give each worker a private copy of `blind-verdict-template.json` and combine them by strict majority. A separate reviewer fills direction semantics.
+Perform three independent, context-isolated blind direction reviews using only the blind sheet—never disclose labels, generation prompts, or the answer key. Give each worker a private copy of `blind-verdict-template.json` and combine them by strict majority. A separate reviewer with an identifier distinct from every blind reviewer fills direction semantics.
 
 Run three additional independent visual reviewers. Each receives only the canonical identity, state names with minimal contract meanings, normal-size filmstrips, animated previews at app timing, and the final contact/direction sheets. Never give them generation prompts, the motion plan, earlier verdicts, or claimed repairs. Each fills a private copy of the visual-QA template frame by frame, including the required contract beat/support fields, all adjacent transitions, and loop wraps. Use distinct reviewer identifiers. All three visual verdicts must pass unanimously; a majority is insufficient. Record the three `--independent-visual-qa` artifacts with `petkit review-directions`; continuity warnings need a concrete review note.
 
 Run three additional anonymous semantic reviewers using [semantic-review.md](references/semantic-review.md). They receive randomized clip tokens, state meanings, full/UI-size assets, and calibration controls—not row labels or prompt context. Each must classify every clip correctly at both sizes, reject every calibration control, and pass every confusion pair. Use distinct reviewer identifiers. Record three `--semantic-verdict` artifacts with `petkit review-directions`; all three must pass independently.
+
+`review-directions` validates the complete evidence set in staging and publishes
+the review only when every required artifact passes. Acceptance replays the
+fresh semantic and visual evidence, reviewer records, atlas/canonical-identity
+bindings, and any inherited direction lineage; a review summary alone is not an
+acceptance authority.
 
 Read [quality-gates.md](references/quality-gates.md). Regenerate a complete look row if semantics, anatomy, orientation, identity, continuity, or edges fail. Cardinals are a hard gate. Mechanical validation never substitutes for visual QA.
 
@@ -82,7 +88,7 @@ python3 -m petkit accept --project pets/<id> --build-id <build-id> \
 
 ## Install only on request
 
-Install an accepted build only after explicit user direction with `petkit install --target-root ~/.codex/pets`. Report the replaced-package backup and the Codex refresh/check step. Never install skills globally.
+Install an accepted build only after explicit user direction with `petkit install --target-root ~/.codex/pets`. The installable manifest is hash-bound to the build record, and install rejects a destination package path that overlaps the editable project. Report the replaced-package backup and the Codex refresh/check step. Never install skills globally.
 
 ## Completion
 

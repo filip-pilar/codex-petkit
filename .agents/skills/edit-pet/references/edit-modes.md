@@ -14,6 +14,6 @@ The request needs genuinely new visual content: a changed expression or gesture,
 
 ## Linked variant
 
-The change is a named alternate treatment—season, costume, palette, material, style, or recurring prop—that should coexist with the source pet. Clone first with `petkit variant`, verify its distinct ID, and edit only the clone.
+The change is a named alternate treatment—season, costume, palette, material, style, or recurring prop—that should coexist with the source pet. Confirm the parent is on its current accepted release with no active edit, clone with `petkit variant`, verify the distinct ID, build/review/accept an unchanged child-local baseline, and edit only the clone. Parent history is lineage, not the clone's edit baseline.
 
 If the request mixes modes, perform deterministic corrections first. This keeps image generation focused on the visual work it alone can solve.

@@ -164,7 +164,34 @@ def validate_v2(atlas: Path, output: Path, *, chroma_key: str) -> dict[str, Any]
     return json.loads(output.read_text(encoding="utf-8"))
 
 
-def make_direction_artifacts(atlas: Path, public_dir: Path, private_dir: Path) -> dict[str, str]:
+def _canonical_identity_binding(canonical_identity_sha256: str | None) -> dict[str, str]:
+    if canonical_identity_sha256 is None:
+        return {}
+    return {"canonical_identity_sha256": canonical_identity_sha256}
+
+
+def _require_canonical_identity_binding(
+    payload: Any,
+    canonical_identity_sha256: str | None,
+    *,
+    label: str,
+) -> None:
+    if (
+        canonical_identity_sha256 is not None
+        and (
+            not isinstance(payload, dict)
+            or payload.get("canonical_identity_sha256") != canonical_identity_sha256
+        )
+    ):
+        raise ValueError(f"{label} does not match the canonical identity")
+
+
+def make_direction_artifacts(
+    atlas: Path,
+    public_dir: Path,
+    private_dir: Path,
+    canonical_identity_sha256: str | None = None,
+) -> dict[str, str]:
     public_dir.mkdir(parents=True, exist_ok=True)
     private_dir.mkdir(parents=True, exist_ok=True)
     direction_sheet = public_dir / "direction-qa.png"
@@ -179,13 +206,20 @@ def make_direction_artifacts(atlas: Path, public_dir: Path, private_dir: Path) -
     run_script("measure_direction_continuity.py", (atlas, "--json-out", continuity))
     atlas_hash = sha256_file(atlas)
     answer = json.loads(answer_key.read_text(encoding="utf-8"))
+    identity_binding = _canonical_identity_binding(canonical_identity_sha256)
+    if identity_binding:
+        answer.update(identity_binding)
+        atomic_write_json(answer_key, answer)
     blind_template = public_dir / "blind-verdict-template.json"
     semantics_template = public_dir / "direction-semantics-template.json"
     visual_template = public_dir / "independent-visual-qa-template.json"
     atomic_write_json(
         blind_template,
         {
+            "atlas_sha256": atlas_hash,
+            "reviewer_id": "replace with the independent reviewer's identifier",
             "reviewer_independent": True,
+            **identity_binding,
             "pairs": [
                 {"pair": pair["pair"], "A": "ambiguous", "B": "ambiguous", "reason": "replace with blind observation"}
                 for pair in answer["pairs"]
@@ -196,6 +230,8 @@ def make_direction_artifacts(atlas: Path, public_dir: Path, private_dir: Path) -
         semantics_template,
         {
             "atlas_sha256": atlas_hash,
+            **identity_binding,
+            "reviewer_id": "replace with the independent reviewer's identifier",
             "reviewer_independent": True,
             "directions": [
                 {"degrees": value, "observed": "replace with observed screen direction", "pass": False, "note": ""}
@@ -207,6 +243,7 @@ def make_direction_artifacts(atlas: Path, public_dir: Path, private_dir: Path) -
         visual_template,
         {
             "atlas_sha256": atlas_hash,
+            **identity_binding,
             "reviewer_id": "replace with the independent reviewer's identifier",
             "reviewer_independent": True,
             "pass": False,
@@ -294,11 +331,23 @@ def validate_mechanics(payload: dict[str, Any], contract: Contract) -> None:
         raise ValueError("look mechanics directions are missing or out of V2 order")
 
 
-def validate_direction_semantics(payload: dict[str, Any], contract: Contract, atlas_hash: str) -> None:
+def validate_direction_semantics(
+    payload: dict[str, Any],
+    contract: Contract,
+    atlas_hash: str,
+    canonical_identity_sha256: str | None = None,
+) -> None:
     if payload.get("atlas_sha256") != atlas_hash:
         raise ValueError("direction-semantics review does not match this atlas")
+    _require_canonical_identity_binding(
+        payload,
+        canonical_identity_sha256,
+        label="direction-semantics review",
+    )
     if payload.get("reviewer_independent") is not True:
         raise ValueError("direction-semantics review must be marked reviewer_independent")
+    if not isinstance(payload.get("reviewer_id"), str) or not payload["reviewer_id"].strip():
+        raise ValueError("direction-semantics review requires a reviewer identifier")
     entries = payload.get("directions")
     if not isinstance(entries, list) or len(entries) != 16:
         raise ValueError("direction-semantics review must classify all 16 directions")
@@ -315,9 +364,18 @@ def validate_direction_semantics(payload: dict[str, Any], contract: Contract, at
         raise ValueError("direction-semantics entries are out of V2 order")
 
 
-def validate_visual_qa(payload: dict[str, Any], atlas_hash: str) -> None:
+def validate_visual_qa(
+    payload: dict[str, Any],
+    atlas_hash: str,
+    canonical_identity_sha256: str | None = None,
+) -> None:
     if payload.get("atlas_sha256") != atlas_hash:
         raise ValueError("independent visual QA does not match this atlas")
+    _require_canonical_identity_binding(
+        payload,
+        canonical_identity_sha256,
+        label="independent visual QA",
+    )
     if payload.get("reviewer_independent") is not True or payload.get("pass") is not True:
         raise ValueError("independent visual QA must be independent and passing")
     if not isinstance(payload.get("note"), str) or not payload["note"].strip():
@@ -410,6 +468,7 @@ def validate_semantic_recognition(
     payload: dict[str, Any],
     answer_key: dict[str, Any],
     atlas_hash: str,
+    canonical_identity_sha256: str | None = None,
 ) -> None:
     """Validate one anonymous, full-size and UI-size state-recognition verdict."""
     if payload.get("schema_version") != SEMANTIC_REVIEW_VERSION:
@@ -418,6 +477,16 @@ def validate_semantic_recognition(
         raise ValueError("semantic recognition answer key has an unsupported schema version")
     if payload.get("atlas_sha256") != atlas_hash or answer_key.get("atlas_sha256") != atlas_hash:
         raise ValueError("semantic recognition verdict does not match this atlas")
+    _require_canonical_identity_binding(
+        payload,
+        canonical_identity_sha256,
+        label="semantic recognition verdict",
+    )
+    _require_canonical_identity_binding(
+        answer_key,
+        canonical_identity_sha256,
+        label="semantic recognition answer key",
+    )
     if payload.get("reviewer_independent") is not True or payload.get("pass") is not True:
         raise ValueError("semantic recognition verdict must be independent and passing")
     if not isinstance(payload.get("reviewer_id"), str) or not payload["reviewer_id"].strip():
@@ -498,12 +567,51 @@ def combine_and_validate_blind_reviews(
     answer_key: Path,
     verdicts: list[Path],
     output_dir: Path,
+    canonical_identity_sha256: str | None = None,
+    atlas_sha256: str | None = None,
 ) -> dict[str, Any]:
     if len(verdicts) < 3 or len(verdicts) % 2 == 0:
         raise ValueError("direction QA requires an odd number of at least three independent blind verdicts")
+    resolved_verdicts = [source.expanduser().resolve() for source in verdicts]
+    if len(set(resolved_verdicts)) != len(resolved_verdicts):
+        raise ValueError("direction blind review requires distinct submission files")
+    trusted_answer = json.loads(answer_key.read_text(encoding="utf-8"))
+    trusted_atlas_hash = trusted_answer.get("atlas_sha256") if isinstance(trusted_answer, dict) else None
+    if not isinstance(trusted_atlas_hash, str) or not trusted_atlas_hash:
+        raise ValueError("direction blind answer key is missing its atlas binding")
+    if atlas_sha256 is not None and trusted_atlas_hash != atlas_sha256:
+        raise ValueError("direction blind answer key does not match this atlas")
+    if canonical_identity_sha256 is not None:
+        _require_canonical_identity_binding(
+            trusted_answer,
+            canonical_identity_sha256,
+            label="direction blind answer key",
+        )
+    reviewer_ids: list[str] = []
+    for source in resolved_verdicts:
+        submitted_verdict = json.loads(source.read_text(encoding="utf-8"))
+        if (
+            not isinstance(submitted_verdict, dict)
+            or submitted_verdict.get("atlas_sha256") != trusted_atlas_hash
+        ):
+            raise ValueError("direction blind verdict does not match this atlas")
+        if canonical_identity_sha256 is not None:
+            _require_canonical_identity_binding(
+                submitted_verdict,
+                canonical_identity_sha256,
+                label="direction blind verdict",
+            )
+        if submitted_verdict.get("reviewer_independent") is not True:
+            raise ValueError("direction blind verdict must be marked reviewer_independent")
+        reviewer_id = submitted_verdict.get("reviewer_id")
+        if not isinstance(reviewer_id, str) or not reviewer_id.strip():
+            raise ValueError("direction blind verdict requires a reviewer identifier")
+        reviewer_ids.append(reviewer_id.strip())
+    if len(set(reviewer_ids)) != len(reviewer_ids):
+        raise ValueError("direction blind review requires distinct reviewer identifiers")
     output_dir.mkdir(parents=True, exist_ok=True)
     copied = []
-    for index, source in enumerate(verdicts, start=1):
+    for index, source in enumerate(resolved_verdicts, start=1):
         target = output_dir / f"blind-verdict-{index:02d}.json"
         shutil.copy2(source, target)
         copied.append(target)
@@ -521,4 +629,9 @@ def combine_and_validate_blind_reviews(
     result = json.loads(validation.read_text(encoding="utf-8"))
     if not result.get("ok"):
         raise ValueError("combined blind direction review did not pass")
-    return {"validation": result, "combined": str(combined), "verdicts": [str(path) for path in copied]}
+    return {
+        "validation": result,
+        "combined": str(combined),
+        "verdicts": [str(path) for path in copied],
+        "reviewer_ids": reviewer_ids,
+    }

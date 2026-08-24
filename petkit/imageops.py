@@ -423,21 +423,31 @@ def checkerboard(size: tuple[int, int], square: int = 12) -> Image.Image:
     return canvas
 
 
-def make_contact_sheet(atlas_path: Path, output: Path, contract: Contract, scale: float = 0.5) -> dict[str, Any]:
+def make_contact_sheet(
+    atlas_path: Path,
+    output: Path,
+    contract: Contract,
+    scale: float = 0.5,
+    *,
+    standard_only: bool = False,
+) -> dict[str, Any]:
     with Image.open(atlas_path) as opened:
         atlas = opened.convert("RGBA")
-    if atlas.size != (contract.width, contract.height):
+    expected_height = contract.standard_rows * contract.cell_height if standard_only else contract.height
+    if atlas.size != (contract.width, expected_height):
         raise ValueError("cannot create contact sheet from an atlas with wrong dimensions")
     cell_width = max(1, round(contract.cell_width * scale))
     cell_height = max(1, round(contract.cell_height * scale))
     label_width = 132
     header_height = 28
-    sheet = Image.new("RGB", (label_width + contract.columns * cell_width, header_height + contract.rows * cell_height), "white")
+    states = contract.standard_states if standard_only else contract.states
+    row_count = contract.standard_rows if standard_only else contract.rows
+    sheet = Image.new("RGB", (label_width + contract.columns * cell_width, header_height + row_count * cell_height), "white")
     draw = ImageDraw.Draw(sheet)
     font = ImageFont.load_default()
     for column in range(contract.columns):
         draw.text((label_width + column * cell_width + 4, 8), str(column), fill="black", font=font)
-    for state in contract.states:
+    for state in states:
         top = header_height + state.row * cell_height
         draw.text((6, top + 6), f"{state.row}  {state.id}", fill="black", font=font)
         for column in range(contract.columns):
