@@ -16,7 +16,7 @@ builds, review isolation, and reversibility.
 - `.agents/skills/create-pet/`: production pet-creation workflow.
 - `.agents/skills/edit-pet/`: focused, reversible pet-editing workflow.
 - `tests/`: synthetic contract, safety, validation, regression, and workflow tests.
-- `docs/`: project format, testing model, implementation status, and case studies.
+- `docs/`: project format and testing model.
 - `petkit/v2scripts/`: vendored upstream-derived helpers.
 - `pets/`: ignored local user data, not repository source.
 
@@ -58,8 +58,7 @@ change crosses those boundaries.
 
 ## Vendored files
 
-Files under `petkit/v2scripts/` and
-`petkit/references/v2/animation-rows.md` are checksum-tracked.
+Files under `petkit/v2scripts/` are checksum-tracked.
 
 When changing one:
 
@@ -88,7 +87,7 @@ python3 -m unittest discover -s tests -v
 ```
 
 For packaging or package-data changes, also build a wheel and verify that the
-contract, schema, references, and V2 helper scripts are present.
+contract, schema, and V2 helper scripts are present.
 
 Report checks actually run and any manual Codex Desktop verification that
 remains.

@@ -33,9 +33,5 @@ packages = ["petkit"]
 petkit = [
   "contracts/*.json",
   "schemas/*.json",
-  "references/**/*.md",
   "v2scripts/*.py",
 ]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]

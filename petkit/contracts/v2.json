@@ -5,8 +5,7 @@
   "verified_on": "2026-07-19",
   "sources": {
     "manual": "https://learn.chatgpt.com/docs/pets",
-    "hatch_pet_skill": "third_party/openai-hatch-pet",
-    "animation_rows": "petkit/references/v2/animation-rows.md"
+    "hatch_pet_skill": "third_party/openai-hatch-pet"
   },
   "atlas": {
     "width": 1536,
