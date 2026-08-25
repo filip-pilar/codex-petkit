@@ -1,5 +1,8 @@
 # Pet Workshop
 
+Create, edit, validate, install, and safely roll back animated pets for Codex
+Desktop.
+
 Pet Workshop is an experimental, community-maintained toolkit for creating and
 editing animated V2 pets for Codex Desktop on macOS.
 

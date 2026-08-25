@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pet-workshop"
 version = "0.1.0"
-description = "Skills and deterministic tooling for creating and editing Codex Desktop pets."
+description = "Create, edit, validate, install, and safely roll back animated pets for Codex Desktop."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
