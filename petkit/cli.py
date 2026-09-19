@@ -21,6 +21,7 @@ from petkit.build import (
     preflight_phase,
     recorded_project_file,
     review_directions,
+    review_build,
     rollback_install,
 )
 from petkit.contract import Contract, load_contract
@@ -78,7 +79,8 @@ def locked_project_command(function: Any) -> Any:
             history_root = safe_project_directory(project_dir, "history")
             ensure_tree_has_no_symlinks(history_root, boundary=project_dir)
             qa_root = safe_project_directory(project_dir, "qa")
-            ensure_tree_has_no_symlinks(qa_root, boundary=project_dir)
+            if qa_root.exists():
+                ensure_tree_has_no_symlinks(qa_root, boundary=project_dir)
             return function(args)
 
     return wrapped
@@ -350,17 +352,7 @@ def cmd_ingest_row(args: argparse.Namespace) -> None:
     project_dir, project, contract, state = _state_and_project(args.project, args.state)
     if not project["identity"].get("approved"):
         raise ValueError("approve the canonical identity before ingesting animation rows")
-    if state.id == "look-a":
-        if not isinstance(project.get("look", {}).get("cardinals"), dict) or project["look"]["cardinals"].get("approved") is not True:
-            raise ValueError("approve the four cardinal anchors before ingesting look row 9")
     row_9_basis: str | None = None
-    if state.id == "look-b":
-        approval = project.get("look", {}).get("row_9_approval")
-        if project.get("look", {}).get("row_9_approved") is not True or not isinstance(approval, dict):
-            raise ValueError("approve coherent look row 9 before ingesting look row 10")
-        row_9_basis = look_basis_fingerprint(project_dir, project)
-        if approval.get("basis_sha256") != row_9_basis:
-            raise ValueError("row 9 approval is stale; approve the current row before ingesting look row 10")
     source = args.strip.expanduser().resolve()
     if not source.is_file():
         raise ValueError(f"row strip does not exist: {source}")
@@ -753,7 +745,7 @@ def cmd_preview_state(args: argparse.Namespace) -> None:
 
 
 def cmd_build(args: argparse.Namespace) -> None:
-    emit(build_project(args.project, draft=args.draft))
+    emit(build_project(args.project, draft=args.draft, deep_review=args.deep_review))
 
 
 def cmd_plan_edit(args: argparse.Namespace) -> None:
@@ -769,6 +761,11 @@ def cmd_accept(args: argparse.Namespace) -> None:
             review_note=args.review_note,
         )
     )
+
+
+def cmd_review(args: argparse.Namespace) -> None:
+    emit(review_build(args.project, args.build_id, confirm_visual_qa=args.confirm_visual_qa,
+                      review_note=args.review_note))
 
 
 def cmd_review_directions(args: argparse.Namespace) -> None:
@@ -869,8 +866,8 @@ def cmd_import(args: argparse.Namespace) -> None:
                 "atlas_sha256": sha256_file(spritesheet),
                 "baseline_mode": "repairable-recovery",
                 "note": (
-                    "Recovered pixels are repair inputs, not an unchanged fork proof; mechanics, cardinal, "
-                    "row, build, and review gates remain unverified."
+                    "Recovered pixels are repair inputs. Establish an identity reference, inspect the art, "
+                    "and build a validated local baseline before a scoped edit."
                 ),
             }
             project["look"]["mechanics"] = None
@@ -1040,6 +1037,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Create a mechanically validated candidate that cannot be reviewed, accepted, or installed",
     )
+    command.add_argument("--deep-review", action="store_true", help="Generate optional independent-review diagnostics and require review-directions")
     command.set_defaults(func=cmd_build)
 
     command = subparsers.add_parser("plan-edit", help="Record and enforce the allowed scope of an edit")
@@ -1056,6 +1054,13 @@ def build_parser() -> argparse.ArgumentParser:
     command.add_argument("--confirm-visual-qa", action="store_true")
     command.add_argument("--review-note", required=True)
     command.set_defaults(func=cmd_accept)
+
+    command = subparsers.add_parser("review", help="Record a visual review of an exact release and its animated previews")
+    command.add_argument("--project", required=True)
+    command.add_argument("--build-id", required=True)
+    command.add_argument("--confirm-visual-qa", action="store_true")
+    command.add_argument("--review-note", required=True)
+    command.set_defaults(func=cmd_review)
 
     command = subparsers.add_parser("review-directions", help="Combine blind V2 direction reviews and record independent semantic/visual QA")
     command.add_argument("--project", required=True)

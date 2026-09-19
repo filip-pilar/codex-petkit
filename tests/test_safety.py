@@ -17,7 +17,7 @@ from PIL import Image
 
 import petkit.build as build_module
 import petkit.project as project_module
-from petkit.build import _resolve_install_target, _verify_variant_fork_snapshot, rollback_install
+from petkit.build import _resolve_install_target, rollback_install
 from petkit.contract import load_contract
 from petkit.project import (
     TransactionRecoveryError,
@@ -350,10 +350,9 @@ class SafetyTests(unittest.TestCase):
         )
         self.assertEqual(snapshot["origin"], "legacy-owner-rebaseline")
         self.assertIn("legacy-work.txt", snapshot["source_sha256"])
-        _verify_variant_fork_snapshot(variant, upgraded)
+        self.assertEqual(source_file_snapshot(variant), snapshot["source_sha256"])
         retained_work.write_text("changed after rebaseline", encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "variant source changed"):
-            _verify_variant_fork_snapshot(variant, upgraded)
+        self.assertNotEqual(source_file_snapshot(variant), snapshot["source_sha256"])
 
     def test_variant_snapshot_binds_chroma_parameters(self) -> None:
         parent = init_project(self.root / "pets", "source-pet", "Source Pet", "fixture", "fixture", "fixture")
@@ -364,17 +363,14 @@ class SafetyTests(unittest.TestCase):
         (variant / "source" / "post-fork.txt").write_text("post-fork mutation", encoding="utf-8")
         project["generation"]["chroma_threshold"] = 110.0
         save_project(variant, project)
-        with self.assertRaisesRegex(ValueError, "variant source changed"):
-            _verify_variant_fork_snapshot(variant, project)
+        self.assertNotEqual(source_file_snapshot(variant), original_snapshot["source_sha256"])
         result = upgrade_project(variant)
         self.assertNotIn("variant_integrity_rebaseline", result)
         _, after_upgrade = load_project(variant)
         self.assertEqual(after_upgrade["generation"]["fork_snapshot"], original_snapshot)
-        with self.assertRaisesRegex(ValueError, "variant source changed"):
-            _verify_variant_fork_snapshot(variant, after_upgrade)
+        self.assertNotEqual(source_file_snapshot(variant), original_snapshot["source_sha256"])
         (variant / "source" / "post-fork.txt").unlink()
-        with self.assertRaisesRegex(ValueError, "variant chroma parameters changed"):
-            _verify_variant_fork_snapshot(variant, after_upgrade)
+        self.assertNotEqual(after_upgrade["generation"]["chroma_threshold"], original_snapshot["build_parameters"]["chroma_threshold"])
 
     def test_upgrade_rebaselines_and_clears_an_accepted_legacy_variant_once(self) -> None:
         parent = init_project(self.root / "pets", "source-pet", "Source Pet", "fixture", "fixture", "fixture")
@@ -1014,7 +1010,7 @@ class SafetyTests(unittest.TestCase):
         self.assertEqual(unchanged["look"]["cardinals"], {"approved": True})
         self.assertTrue(unchanged["look"]["row_9_approved"])
         self.assertEqual(unchanged["look"]["row_9_approval"], {"basis_sha256": "b" * 64})
-        _verify_variant_fork_snapshot(variant, unchanged)
+        self.assertEqual(source_file_snapshot(variant), unchanged["generation"]["fork_snapshot"]["source_sha256"])
 
     def test_status_does_not_create_review_or_other_project_state(self) -> None:
         project = init_project(self.root / "pets", "status-pet", "Status Pet", "fixture", "fixture", "fixture")

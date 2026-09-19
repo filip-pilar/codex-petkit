@@ -58,7 +58,7 @@ from petkit.project import (
     PROJECT_FILE,
     TransactionRecoveryError,
 )
-from petkit.semantic import make_semantic_recognition_artifacts, validate_design_gate_artifacts
+from petkit.semantic import make_semantic_recognition_artifacts
 from petkit.v2 import (
     assemble_v2,
     combine_and_validate_blind_reviews,
@@ -209,7 +209,7 @@ def look_basis_fingerprint(project_dir: Path, project: dict[str, Any]) -> str:
     return _json_sha256(_look_basis_components(project_dir, project))
 
 
-def authority_snapshot(project_dir: Path, project: dict[str, Any]) -> dict[str, str]:
+def _legacy_authority_snapshot(project_dir: Path, project: dict[str, Any]) -> dict[str, str]:
     """Resolve and verify only the canonical files that authorize a V2 build."""
 
     components = _look_basis_components(project_dir, project)
@@ -235,31 +235,26 @@ def authority_snapshot(project_dir: Path, project: dict[str, Any]) -> dict[str, 
     }
 
 
+def authority_snapshot(project_dir: Path, project: dict[str, Any]) -> dict[str, str]:
+    """Bind actual production inputs without prescribing a creative workflow."""
+    components = {"canonical_identity_sha256": _canonical_identity_hash(project_dir, project)}
+    for state_id in ("look-a", "look-b"):
+        _path, digest = recorded_project_file(
+            project_dir, project.get("generation", {}).get("row_sources", {}).get(state_id),
+            label=f"{state_id} source row",
+        )
+        components[state_id.replace("-", "_") + "_sha256"] = digest
+    return components
+
+
+def _review_authority_files(record: dict[str, Any]) -> tuple[str, ...]:
+    return () if record.get("review_profile") == "visual" else REVIEW_AUTHORITY_FILES
+
+
 def _required_look_source(project_dir: Path, project: dict[str, Any], state_id: str) -> Path:
     metadata = project["generation"].get("row_sources", {}).get(state_id)
     path, _actual_hash = recorded_project_file(project_dir, metadata, label=f"{state_id} source row")
     return path
-
-
-def _verify_variant_fork_snapshot(
-    project_dir: Path,
-    project: dict[str, Any],
-) -> None:
-    if not project.get("parent_id") or project.get("accepted_build"):
-        return
-    generation = project.get("generation")
-    snapshot = generation.get("fork_snapshot") if isinstance(generation, dict) else None
-    if not isinstance(snapshot, dict) or snapshot.get("schema_version") != 2:
-        raise ValueError(
-            "variant is missing its fork snapshot; run upgrade-project to explicitly rebaseline "
-            "the current legacy variant state"
-        )
-    if snapshot.get("source_sha256") != source_file_snapshot(project_dir):
-        raise ValueError("variant source changed before its first child-local baseline build")
-    if snapshot.get("authority") != recorded_authority_values(project):
-        raise ValueError("variant authority changed before its first child-local baseline build")
-    if snapshot.get("build_parameters") != fork_build_parameters(project):
-        raise ValueError("variant chroma parameters changed before its first child-local baseline build")
 
 
 def _standard_alpha_identical(before: Path, after: Path, contract: Any) -> bool:
@@ -709,7 +704,7 @@ def _preflight_edit_scope(
             else:
                 authority_changes = {
                     key
-                    for key in set(baseline_authority) | set(current_authority)
+                    for key in {"canonical_identity_sha256", "look_a_sha256", "look_b_sha256"}
                     if baseline_authority.get(key) != current_authority.get(key)
                 }
                 if authority_changes == {"look_b_sha256"}:
@@ -756,7 +751,7 @@ def _prepare_build_preflight(
             or not isinstance(accepted_record.get("pet_json_sha256"), str)
             or not re.fullmatch(r"[0-9a-f]{64}", accepted_record["pet_json_sha256"])
             or not isinstance(accepted_review_authority, dict)
-            or set(accepted_review_authority) != set(REVIEW_AUTHORITY_FILES)
+            or set(accepted_review_authority) != set(_review_authority_files(accepted_record))
             or any(
                 not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value)
                 for value in accepted_review_authority.values()
@@ -764,11 +759,10 @@ def _prepare_build_preflight(
         ):
             raise ValueError("accepted baseline predates integrity binding; run upgrade-project for a fresh baseline")
     contract = load_contract(2)
-    _verify_variant_fork_snapshot(project_dir, project)
     authority = authority_snapshot(project_dir, project)
     qa_root = safe_project_directory(project_dir, "qa")
-    ensure_tree_has_no_symlinks(qa_root, boundary=project_dir)
-    validate_design_gate_artifacts(project_dir, contract)
+    if qa_root.exists():
+        ensure_tree_has_no_symlinks(qa_root, boundary=project_dir)
     frames_root = project_dir / "source" / "frames"
     look_sources = {
         state_id: _required_look_source(project_dir, project, state_id)
@@ -931,7 +925,7 @@ def _direction_cell_hashes(atlas_path: Path, contract: Any) -> dict[str, str]:
 
 
 @project_mutation
-def build_project(project_value: str | Path, *, draft: bool = False) -> dict[str, Any]:
+def build_project(project_value: str | Path, *, draft: bool = False, deep_review: bool = False) -> dict[str, Any]:
     project_dir, project = load_project(project_value)
     original_project = json.loads(json.dumps(project))
     preflight = _prepare_build_preflight(project_dir, project)
@@ -1133,7 +1127,7 @@ def build_project(project_value: str | Path, *, draft: bool = False) -> dict[str
                     state_ids=filmstrip_ids,
                 ),
             }
-            if not draft:
+            if not draft and deep_review:
                 futures["direction"] = workers.submit(
                     make_direction_artifacts,
                     spritesheet,
@@ -1152,7 +1146,7 @@ def build_project(project_value: str | Path, *, draft: bool = False) -> dict[str
                 )
             for name, future in futures.items():
                 artifact_results[name] = future.result()
-        if draft:
+        if draft or not deep_review:
             direction_artifacts: dict[str, str] = {}
             semantic_artifacts: dict[str, str] = {}
         else:
@@ -1229,7 +1223,7 @@ def build_project(project_value: str | Path, *, draft: bool = False) -> dict[str
         despill_cache_hashes = _relative_file_hashes(staging, DESPILL_CACHE_FILES)
         review_authority_hashes = (
             _relative_file_hashes(staging, REVIEW_AUTHORITY_FILES)
-            if not draft
+            if not draft and deep_review
             else {}
         )
 
@@ -1239,6 +1233,8 @@ def build_project(project_value: str | Path, *, draft: bool = False) -> dict[str
             "pet_id": project["id"],
             "contract_version": 2,
             "build_kind": CANDIDATE_BUILD_KIND if draft else RELEASE_BUILD_KIND,
+            "workflow_version": 2,
+            "review_profile": "independent" if deep_review else "visual",
             "build_algorithm_version": BUILD_ALGORITHM_VERSION,
             "despill_processing_version": 2,
             "created_at": now_iso(),
@@ -1274,6 +1270,9 @@ def build_project(project_value: str | Path, *, draft: bool = False) -> dict[str
                 "standard_filmstrips": sorted(reused_filmstrip_ids),
                 "candidate": draft,
             },
+            "visual_artifact_sha256": _relative_file_hashes(staging, (
+                "contact-sheet.png", "change-report.json", "validation.json", "frame-inspection.json"
+            )),
             "artifact_sha256": artifact_hashes,
             "despill_cache_sha256": despill_cache_hashes,
             "review_authority_sha256": review_authority_hashes,
@@ -1461,7 +1460,7 @@ def _verify_build_artifact(project_dir: Path, project: dict[str, Any], build_id:
     _verify_hash_manifest(
         build_dir,
         build_record.get("review_authority_sha256"),
-        REVIEW_AUTHORITY_FILES,
+        _review_authority_files(build_record),
         "private review authority",
     )
     fresh = validate_atlas(spritesheet, load_contract(2))
@@ -1493,7 +1492,7 @@ def _verify_live_build_authority(
         build_inputs = build_record.get("build_inputs")
         authority = build_inputs.get("authority") if isinstance(build_inputs, dict) else None
         return authority if isinstance(authority, dict) else {}
-    live_authority = authority_snapshot(project_dir, project)
+    live_authority = (authority_snapshot if build_record.get("workflow_version") == 2 else _legacy_authority_snapshot)(project_dir, project)
     build_inputs = build_record.get("build_inputs")
     recorded_authority = build_inputs.get("authority") if isinstance(build_inputs, dict) else None
     if recorded_authority != live_authority:
@@ -1756,6 +1755,15 @@ def _verify_review_package(
         raise ValueError("V2 acceptance requires a complete published review package")
     summary = read_json(summary_path)
     canonical_identity_sha256 = build_record["canonical_identity_sha256"]
+    if build_record.get("review_profile") == "visual":
+        expected = _visual_review_binding(build_dir, build_record)
+        if (summary.get("schema_version") != 4 or summary.get("complete") is not True
+                or summary.get("ok") is not True or summary.get("build_id") != build_id
+                or summary.get("binding") != expected
+                or not isinstance(summary.get("review_note"), str)
+                or not summary["review_note"].strip()):
+            raise ValueError("visual review is incomplete or does not match the selected build")
+        return selected_review_dir, summary
     if (
         summary.get("schema_version") != 3
         or summary.get("complete") is not True
@@ -1807,6 +1815,56 @@ def _verify_review_package(
     if continuity_required and not str(summary.get("continuity_override_note") or "").strip():
         raise ValueError("review package is missing its required continuity override note")
     return selected_review_dir, summary
+
+
+def _visual_review_binding(build_dir: Path, record: dict[str, Any]) -> dict[str, Any]:
+    contract = load_contract(2)
+    artifacts = ("contact-sheet.png", "change-report.json", "validation.json", "frame-inspection.json") + tuple(
+        f"previews/{state.id}.gif" for state in contract.states
+    )
+    hashes = _relative_file_hashes(build_dir, artifacts)
+    for name in artifacts[:4]:
+        if hashes[name] != record.get("visual_artifact_sha256", {}).get(name):
+            raise ValueError("visual inspection artifact no longer matches the immutable build")
+    # Previews are recorded during build; changing a preview must not create misleading evidence.
+    for state in contract.states:
+        name = f"{state.id}.gif"
+        if hashes[f"previews/{name}"] != record.get("artifact_sha256", {}).get("previews", {}).get(name):
+            raise ValueError("visual preview no longer matches the immutable build")
+    return {
+        "atlas_sha256": record["spritesheet_sha256"],
+        "pet_json_sha256": record["pet_json_sha256"],
+        "canonical_identity_sha256": record["canonical_identity_sha256"],
+        "artifacts": hashes,
+    }
+
+
+@project_mutation
+def review_build(project_value: str | Path, build_id: str, *, confirm_visual_qa: bool = False,
+                 review_note: str = "") -> dict[str, Any]:
+    """Record observed motion/identity/direction quality; never fabricate visual judgment."""
+    if not confirm_visual_qa or not review_note.strip():
+        raise ValueError("review requires visual inspection confirmation and an observation note")
+    project_dir, project = load_project(project_value)
+    build_dir, record = _prepare_review_publication_preflight(project_dir, project, build_id)
+    if record.get("review_profile") != "visual":
+        raise ValueError("this historical or deep-review build requires review-directions; rebuild for concise review")
+    summary = {
+        "schema_version": 4, "build_id": build_id, "complete": True, "ok": True,
+        "reviewed_at": now_iso(), "review_note": review_note.strip(),
+        "binding": _visual_review_binding(build_dir, record),
+    }
+    reviews = safe_project_directory(project_dir, "reviews", create=True)
+    staging = reviews / f".{build_id}.staging-{uuid.uuid4().hex}"
+    staging.mkdir()
+    try:
+        atomic_write_json(staging / "review-summary.json", summary)
+        _verify_review_package(project_dir, project, build_id, build_dir, record, staging)
+        os.replace(staging, reviews / build_id)
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    return summary
 
 
 @project_mutation

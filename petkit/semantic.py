@@ -14,7 +14,6 @@ from petkit.project import atomic_write_json
 
 SEMANTIC_REVIEW_VERSION = 1
 SEMANTIC_THUMBNAIL_SCALE = 0.375
-DESIGN_GATE_VERSION = 1
 
 SEMANTIC_STATE_OPTIONS: dict[str, str] = {
     "idle": "calm resting life; quiet and self-contained",
@@ -38,64 +37,6 @@ SEMANTIC_CONFUSION_PAIRS = (
     ("review", "failed"),
     ("failed", "idle"),
 )
-
-
-def validate_design_gate_artifacts(project_dir: Path, contract: Contract) -> None:
-    """Require semantic design/capability evidence before a V2 build starts."""
-    qa_dir = project_dir / "qa"
-    motion_plan = qa_dir / "standard-motion-plan.md"
-    if not motion_plan.is_file() or not motion_plan.read_text(encoding="utf-8").strip():
-        raise ValueError("V2 build requires a non-empty qa/standard-motion-plan.md")
-    concept_sheet = qa_dir / "key-pose-concepts.png"
-    if not concept_sheet.is_file():
-        raise ValueError("V2 build requires qa/key-pose-concepts.png before full-strip generation")
-
-    expected_states = [state.id for state in contract.standard_states]
-    capability_path = qa_dir / "capability-audit.json"
-    try:
-        capability = json.loads(capability_path.read_text(encoding="utf-8"))
-    except FileNotFoundError as exc:
-        raise ValueError("V2 build requires qa/capability-audit.json") from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError("qa/capability-audit.json is not valid JSON") from exc
-    if capability.get("schema_version") != DESIGN_GATE_VERSION or capability.get("pass") is not True:
-        raise ValueError("capability audit must be an approved V2 design gate")
-    capability_entries = capability.get("states")
-    if not isinstance(capability_entries, list) or [entry.get("state") for entry in capability_entries if isinstance(entry, dict)] != expected_states:
-        raise ValueError("capability audit must cover all nine standard states in contract order")
-    for entry in capability_entries:
-        if entry.get("approved") is not True:
-            raise ValueError(f"capability audit has not approved {entry.get('state')}")
-        for field in ("capability", "thumbnail_cue", "anti_confusion"):
-            if not isinstance(entry.get(field), str) or not entry[field].strip():
-                raise ValueError(f"capability audit {entry.get('state')} requires {field} evidence")
-        if entry["capability"].strip().lower() in {"eyes-only", "eye-only", "eyes only"}:
-            raise ValueError(f"capability audit {entry.get('state')} cannot rely on an eye-only capability")
-
-    key_pose_path = qa_dir / "key-pose-review.json"
-    try:
-        key_pose = json.loads(key_pose_path.read_text(encoding="utf-8"))
-    except FileNotFoundError as exc:
-        raise ValueError("V2 build requires qa/key-pose-review.json") from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError("qa/key-pose-review.json is not valid JSON") from exc
-    if key_pose.get("schema_version") != DESIGN_GATE_VERSION or key_pose.get("pass") is not True:
-        raise ValueError("key-pose concept review must be a passing V2 design gate")
-    if not isinstance(key_pose.get("reviewer_id"), str) or not key_pose["reviewer_id"].strip():
-        raise ValueError("key-pose concept review requires a reviewer identifier")
-    if key_pose.get("reviewer_independent") is not True:
-        raise ValueError("key-pose concept review must be independently judged")
-    inputs = key_pose.get("review_inputs")
-    if not isinstance(inputs, dict) or inputs.get("full_size_seen") is not True or inputs.get("thumbnail_size_seen") is not True or inputs.get("prompts_or_motion_plan_seen") is not False:
-        raise ValueError("key-pose concept review must be full/UI-size and prompt-blind")
-    pose_entries = key_pose.get("states")
-    if not isinstance(pose_entries, list) or [entry.get("state") for entry in pose_entries if isinstance(entry, dict)] != expected_states:
-        raise ValueError("key-pose concept review must cover all nine standard states in contract order")
-    for entry in pose_entries:
-        if entry.get("full_read") is not True or entry.get("thumbnail_read") is not True:
-            raise ValueError(f"key-pose concept {entry.get('state')} is not readable at both sizes")
-        if not isinstance(entry.get("note"), str) or not entry["note"].strip():
-            raise ValueError(f"key-pose concept {entry.get('state')} requires recognition evidence")
 
 
 def _token(index: int) -> str:

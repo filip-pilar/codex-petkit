@@ -1575,12 +1575,6 @@ def plan_edit(
         raise ValueError("edit outcome must not be empty")
     current_build = project.get("current_build")
     accepted_build = project.get("accepted_build")
-    generation = project.get("generation")
-    requires_accepted_local_baseline = bool(project.get("parent_id")) or (
-        isinstance(generation, dict) and isinstance(generation.get("recovery_import"), dict)
-    )
-    if requires_accepted_local_baseline and not accepted_build:
-        raise ValueError("imports and variants require an accepted child-local baseline before planning an edit")
     baseline = accepted_build or current_build
     if not baseline:
         raise ValueError("create a baseline build before planning an edit")
@@ -1697,6 +1691,8 @@ def upgrade_project(project_value: str | Path) -> dict[str, Any]:
             "qa-private/semantic-recognition-answer-key.json",
             "qa/direction-continuity.json",
         }
+        if accepted_record.get("review_profile") == "visual":
+            required_review_authority = set()
         if (
             isinstance(authority_fingerprint, str)
             and re.fullmatch(r"[0-9a-f]{64}", authority_fingerprint)

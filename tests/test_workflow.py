@@ -20,7 +20,7 @@ from petkit.build import (
     _verify_edit_scope_for_acceptance,
     accept_build,
     authority_snapshot,
-    build_project,
+    build_project as production_build,
     install_build,
     look_basis_fingerprint,
     review_directions,
@@ -53,6 +53,12 @@ from petkit.v2 import (
 )
 from petkit.semantic import SEMANTIC_CONFUSION_PAIRS, SEMANTIC_STATE_OPTIONS
 from tests.helpers import identity_image, replacement_frame, row_strip
+
+
+def build_project(project, *, draft=False):
+    # This suite exercises historical independent-review artifacts and transaction recovery.
+    # The default, concise production route is covered in test_astra_workflow.
+    return production_build(project, draft=draft, deep_review=True)
 
 
 class WorkflowTests(unittest.TestCase):
@@ -419,29 +425,12 @@ class WorkflowTests(unittest.TestCase):
         _, resumed = load_project(self.project)
         self.assertEqual(len(resumed["generation"]["completed_states"]), 11)
 
-    def test_status_and_build_share_design_gate_preflight(self) -> None:
+    def test_status_does_not_require_design_paperwork(self) -> None:
         self.ingest()
-        (self.project / "qa" / "key-pose-review.json").unlink()
-        status = subprocess.run(
-            [sys.executable, "-m", "petkit", "status", "--project", str(self.project)],
-            cwd=Path(__file__).resolve().parents[1],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        status_payload = json.loads(status.stdout)
-        self.assertFalse(status_payload["ready_to_build"])
-        self.assertTrue(
-            any(
-                blocker["phase"] == "build" and "key-pose-review.json" in blocker["message"]
-                for blocker in status_payload["blockers"]
-            )
-        )
-        with patch("petkit.build.assemble_v2") as assemble:
-            with self.assertRaisesRegex(ValueError, "key-pose-review.json"):
-                build_project(self.project)
-            assemble.assert_not_called()
-        self.assertFalse((self.project / "builds" / "build-0001").exists())
+        shutil.rmtree(self.project / "qa")
+        _, project = load_project(self.project)
+        result = build_module.preflight_phase(self.project, project, "build")
+        self.assertTrue(result["ok"], result)
 
     def test_build_rejects_source_mutation_during_the_build_window(self) -> None:
         self.ingest()
@@ -994,14 +983,9 @@ class WorkflowTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-        with self.assertRaisesRegex(ValueError, "look mechanics no longer matches"):
-            create_variant(
-                self.project,
-                self.projects,
-                "unaccepted-authority-child",
-                "Unaccepted Authority Child",
-            )
-        self.assertFalse((self.projects / "unaccepted-authority-child").exists())
+        child = create_variant(self.project, self.projects, "optional-study-child", "Optional Study Child")
+        self.assertTrue(child.is_dir())
+
 
     def test_variant_cancellation_removes_private_staging_and_published_child_state(self) -> None:
         self.ingest()
@@ -1143,31 +1127,17 @@ class WorkflowTests(unittest.TestCase):
                 if quarantine.exists():
                     real_rmtree(quarantine)
 
-    def test_look_approval_fingerprints_reject_stale_upstream_authority(self) -> None:
+    def test_new_authority_binds_sources_without_optional_studies(self) -> None:
         self.ingest()
         _, project = load_project(self.project)
-        mechanics_path = self.project / project["look"]["mechanics"]["path"]
-        mechanics_path.write_text(
-            mechanics_path.read_text(encoding="utf-8") + "\n",
-            encoding="utf-8",
-        )
-        project["look"]["mechanics"]["sha256"] = sha256_file(mechanics_path)
-        save_project(self.project, project)
-
-        with self.assertRaisesRegex(ValueError, "row 9 approval is stale"):
+        before = authority_snapshot(self.project, project)
+        project["look"] = {"mechanics": None, "cardinals": None,
+                           "row_9_approved": False, "row_9_approval": None}
+        self.assertEqual(authority_snapshot(self.project, project), before)
+        look_b = self.project / project["generation"]["row_sources"]["look-b"]["path"]
+        look_b.write_bytes(look_b.read_bytes() + b"drift")
+        with self.assertRaisesRegex(ValueError, "no longer matches"):
             authority_snapshot(self.project, project)
-
-        refreshed_basis = look_basis_fingerprint(self.project, project)
-        project["look"]["row_9_approval"]["basis_sha256"] = refreshed_basis
-        save_project(self.project, project)
-        with self.assertRaisesRegex(ValueError, "look-b source row is stale"):
-            authority_snapshot(self.project, project)
-
-        project["generation"]["row_sources"]["look-b"]["row_9_basis_sha256"] = refreshed_basis
-        save_project(self.project, project)
-        snapshot = authority_snapshot(self.project, project)
-        self.assertEqual(snapshot["mechanics_sha256"], sha256_file(mechanics_path))
-        self.assertEqual(snapshot["row_9_basis_sha256"], refreshed_basis)
 
     def test_replanned_edit_keeps_accepted_authority_and_compares_with_current_build(self) -> None:
         _, project = load_project(self.project)
@@ -1374,13 +1344,8 @@ class WorkflowTests(unittest.TestCase):
         )
         recovered_project["current_build"] = "build-0001"
         save_project(recovered_project_dir, recovered_project)
-        with self.assertRaisesRegex(ValueError, "accepted child-local baseline"):
-            plan_edit(
-                recovered_project_dir,
-                "deterministic",
-                "Try to edit recovered pixels before establishing local authority.",
-                ["idle"],
-            )
+        edit = plan_edit(recovered_project_dir, "deterministic", "Repair recovered pixels", ["idle"])
+        self.assertEqual(edit["allowed_states"], ["idle"])
 
         manifest_path = first_dir / "pet.json"
         build_record_path = first_dir / "build.json"
@@ -1910,37 +1875,12 @@ class WorkflowTests(unittest.TestCase):
         _, variant_metadata = load_project(variant)
         self.assertEqual(variant_metadata["parent_id"], "test-moth")
         self.assertIsNone(variant_metadata["current_build"])
-        with self.assertRaisesRegex(ValueError, "variant source changed before its first child-local baseline"):
-            build_project(variant)
-        variant_frame.write_bytes(variant_frame_bytes)
-        approve_identity(
-            variant,
-            identity_image(self.root / "variant-identity-drift.png", color=(30, 190, 160)),
-        )
-        with self.assertRaisesRegex(ValueError, "variant authority changed before its first child-local baseline"):
-            build_project(variant)
-        variant_build_dir = variant / "builds" / "build-0001"
-        variant_build_dir.mkdir()
-        (variant_build_dir / "build.json").write_text(
-            json.dumps(
-                {
-                    "build_id": "build-0001",
-                    "pet_id": variant_metadata["id"],
-                    "source_sha256": {},
-                    "build_inputs": {"authority_fingerprint": "a" * 64},
-                }
-            ),
-            encoding="utf-8",
-        )
-        variant_metadata["current_build"] = "build-0001"
-        save_project(variant, variant_metadata)
-        with self.assertRaisesRegex(ValueError, "accepted child-local baseline"):
-            plan_edit(
-                variant,
-                "variant",
-                "Try to edit the variant before establishing its child-local baseline.",
-                ["idle"],
-            )
+        # A copied variant may develop immediately; it does not need an unchanged accepted release.
+        variant_build = production_build(variant)
+        self.assertTrue(variant_build["validation"]["ok"])
+        edit = plan_edit(variant, "variant", "Continue the independent treatment", ["idle", "look-a", "look-b"])
+        self.assertEqual(edit["comparison_build"], variant_build["build_id"])
+        self.assertEqual(sha256_file(self.project / "source" / "frames" / "idle" / "00.png"), original_hash)
 
     def test_targeted_row_replacement_and_restore_preserve_other_states(self) -> None:
         self.ingest()

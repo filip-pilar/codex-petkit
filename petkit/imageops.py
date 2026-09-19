@@ -350,11 +350,11 @@ def inspect_frames(
                 }
             )
         elif len(hashes) == state.frame_count and unique_count < len(hashes):
-            errors.append(
+            warnings.append(
                 {
                     "code": "duplicate-frame",
                     "state": state.id,
-                    "message": f"{len(hashes) - unique_count} frame(s) are exact duplicates; every beat must contribute",
+                    "message": f"{len(hashes) - unique_count} frame(s) are exact duplicates; inspect whether the hold is intentional",
                 }
             )
         elif hashes and unique_count < max(2, math.ceil(len(hashes) * 0.6)):
@@ -366,11 +366,11 @@ def inspect_frames(
                 }
             )
         if len(hashes) > 1 and hashes[0] == hashes[-1]:
-            errors.append(
+            warnings.append(
                 {
                     "code": "loop-duplicate-frame",
                     "state": state.id,
-                    "message": "the final frame duplicates the first frame instead of providing a distinct loop return",
+                    "message": "the final frame duplicates the first frame; inspect the loop timing",
                 }
             )
         visible = [record for record in records if record["bbox"]]

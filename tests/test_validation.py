@@ -265,7 +265,7 @@ class ValidationTests(unittest.TestCase):
         static_rows = {error.get("state") for error in report["errors"] if error["code"] == "static-row"}
         self.assertEqual(static_rows, {"idle"})
 
-    def test_exact_duplicate_motion_beat_fails_frame_inspection(self) -> None:
+    def test_exact_duplicate_motion_beat_warns_for_visual_review(self) -> None:
         frames_root = self.root / "duplicate-frames"
         for state in self.contract.states:
             state_dir = frames_root / state.id
@@ -278,7 +278,7 @@ class ValidationTests(unittest.TestCase):
                 draw.point((60 + point_index, 60), fill=(255, 255, 255, 255))
                 frame.save(state_dir / f"{index:02d}.png")
         report = inspect_frames(frames_root, self.contract)
-        duplicate_rows = {error.get("state") for error in report["errors"] if error["code"] == "duplicate-frame"}
+        duplicate_rows = {error.get("state") for error in report["warnings"] if error["code"] == "duplicate-frame"}
         self.assertEqual(duplicate_rows, {"waving"})
 
     def test_standard_edge_contact_fails_frame_inspection(self) -> None:

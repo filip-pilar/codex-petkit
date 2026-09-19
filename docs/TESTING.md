@@ -1,21 +1,9 @@
-# Testing and evidence
+# Validation
 
-Run `python3 -m unittest discover -s tests -v`.
+The default workflow targets GPT-6 Astra. Synthetic tests prove deterministic behavior, not artistic quality or model performance.
 
-The suite covers the V2-only contract; 8×11 geometry and neutral cell; unused-cell transparency; exact extraction/recomposition; partial resume; semantic design/capability/key-pose gates; exact duplicate-beat and standard-edge rejection; cardinal/row sequencing; full registered assembly; strict V2 validation; nine-row legacy-to-V2 comparison; cellwise despill parity and cache invalidation; 11 previews; direction QA artifacts; distinct direction and blind reviewers; anonymous full/UI-size semantic recognition and calibration rejection; independent semantics/final QA; transactional review publication and acceptance replay; private review-authority hashes; candidate-build isolation/rejection and durable candidate publication; verified private source/cache/parent-artifact snapshots and aggregated cleanup diagnostics; trace-injected cancellation at lock, atomic-write, directory-allocation, publication, marker-removal, and recovery-rename boundaries; idempotent next-mutation recovery for builds, identity approval, and variants; stale-lock rejection, mutual exclusion, and reusable locks; safe direction-review inheritance; non-mutating shared status/phase preflight; mandatory post-acceptance edit scope; destination-byte-sensitive, rollback-safe identity reapproval under source-path swaps and commit failures; byte-sensitive manifest drift rejection; staged backup verification and explicit legacy rollback; project/output/package-path and nested-symlink rejection; validated reversible unambiguous PNG/WebP frame and row backups; and linked-variant verification of the accepted parent plus child-local fork isolation including chroma parameters.
+Run `python3 -m unittest discover -s tests -v` for build/review/install/project changes. Focused suites cover geometry, validation, filesystem safety, workflow transactions and the concise Astra review path. Tests use temporary synthetic projects; they never install to real user directories. Preserve coverage of corrupted manifests, stale reviews, source drift, edit-scope violations, cancellation recovery, and reversible installation. Historical independent-review tests exercise the opt-in diagnostics path.
 
-Synthetic fixture art tests deterministic behavior only. Production art must come from `$imagegen` or user sources.
+Visual checks inspect actual animation timing, identity, direction and small-size readability. Duplicate holds are warnings; malformed geometry, missing/empty assets, static rows and clipping remain failures. Review affected states and dependencies for edits. No fixed number of reviewers is required by the ordinary workflow.
 
-## Real visual QA
-
-A production build additionally requires:
-
-1. labeled inspection of all 16 directions, including facial/head zooms;
-2. three context-isolated blind A/B reviewers who do not receive labels, prompts, or the answer key;
-3. strict-majority combination with cardinal pairs as hard gates;
-4. three prompt-blind independent visual reviewers who inspect canonical identity, normal-size filmstrips, and animated previews without seeing generation prompts or the motion plan;
-5. unanimous frame-by-frame anatomy, frame-contribution, transition/loop, identity/material, scale/proportion, framing, motion, and cross-state consistency verdicts;
-6. three anonymous semantic reviewers who classify randomized clips at full and approximate UI size, reject every inert/repetitive/cropped/identity-drift calibration control, and pass every required confusion pair without labels, prompts, or the answer key;
-7. human review of any deterministic continuity warnings.
-
-The final integration observation remains in Codex Settings → Pets: select the installed pet and verify look tracking plus representative standard states.
+A real generated pet and Codex Settings → Pets remain the integration check for artwork and runtime behavior. State explicitly when those were not exercised; do not use synthetic fixture passes as artistic evidence.
