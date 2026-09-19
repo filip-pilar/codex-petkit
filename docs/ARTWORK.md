@@ -1,6 +1,6 @@
 # Artwork guidance
 
-Astra directs the process; the image-generation tool creates new artwork. Improvements in reasoning do not guarantee consistent generated sprite geometry. Choose a generation strategy based on the actual outputs, without requiring model comparisons before normal work.
+Generate new artwork with an image-generation tool. Inspect the resulting sprites for consistent geometry, identity and motion.
 
 ## Identity and extraction
 
@@ -16,4 +16,4 @@ Inspect GIFs at contract timing and approximate desktop size, including the last
 
 Rows 9 and 10 contain 16 clockwise look poses. 000 is up, 090 viewer-right, 180 down, 270 viewer-left; neutral is separate at row 0 column 6. Follow the exact order in the contract. Keep scale, baseline, lighting and identity consistent across both strips. Cardinal studies or a mechanics plan can help ambiguous turn systems, but are not build prerequisites. Inspect all directions for a new pet and affected/dependent directions for edits.
 
-The assembler registers source strips against neutral. Whole-row regeneration is often the most coherent repair; use judgment rather than treating repeated regeneration as a quality guarantee. Additional independent review is useful when a specific uncertainty remains, not as a compulsory vote count.
+The assembler registers source strips against neutral. Whole-row regeneration is often the most coherent repair; use judgment rather than treating repeated regeneration as a quality guarantee. Use additional review to resolve specific visual uncertainties.

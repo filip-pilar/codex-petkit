@@ -1,4 +1,4 @@
-"""Default Astra workflow: real assembly and temporary installation, no production art."""
+"""Visual review workflow: real assembly and temporary installation, no production art."""
 from __future__ import annotations
 
 import json
@@ -18,7 +18,7 @@ from tests import test_workflow as fixtures
 from tests.helpers import row_strip, replacement_frame
 
 
-class AstraWorkflowTests(unittest.TestCase):
+class VisualReviewWorkflowTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.fixture = fixtures.WorkflowTests()

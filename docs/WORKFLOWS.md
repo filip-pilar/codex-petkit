@@ -5,16 +5,16 @@ Run `python3 -m petkit <command> --help` for arguments. Commands return JSON. `s
 ## Create
 
 1. `init --root pets --id <id> --name <name> --description <text> --concept <text>` creates an ignored editable project.
-2. `approve-identity --project pets/<id> --image <path>` retains and binds the selected reference. Choose it under the user's existing creative authorization.
+2. `approve-identity --project pets/<id> --image <path>` retains and binds the selected reference.
 3. `contract --version 2` supplies counts and timing. `make-guides` is optional. Generate source strips, then `ingest-row --project pets/<id> --state <state> --strip <path>` for all 11 rows. Look rows can be ingested in either order; no cardinal approval or mechanics JSON is required.
 4. `build --project pets/<id>` creates an immutable validated release with a contact sheet, filmstrips, animated previews and change report. Inspect those artifacts and repair defects.
 5. `review --project pets/<id> --build-id <build-id> --confirm-visual-qa --review-note "<observations>"` binds visual inspection to that exact build. A note should cover identity, motion/loops, state readability, directions and relevant warnings; it must reflect actual inspection.
-6. `accept --project pets/<id> --build-id <build-id> --confirm-visual-qa --review-note "<result>"` selects the release. This is a local readiness record, not an extra user-approval ceremony.
+6. `accept --project pets/<id> --build-id <build-id> --confirm-visual-qa --review-note "<result>"` selects the release. This records the package as ready for installation.
 7. When authorized, `install --project pets/<id> --target-root ~/.codex/pets` installs the accepted package and backs up what it replaces. Reopen Codex if its pet list has not refreshed. Verify representative states and look tracking in the actual app when available; otherwise report that integration check as outstanding.
 
 ## Edit and variants
 
-Use `plan-edit --project pets/<id> --mode generative --outcome "<change>" --allow-state waving` before modifying a baseline. Deterministic edits use `--mode deterministic`. Repeat `--allow-state` for dependencies. Sources and final pixels are checked against scope. Build, inspect the affected preview and before/after, review, and accept. Unchanged animations need no repeated panel review.
+Use `plan-edit --project pets/<id> --mode generative --outcome "<change>" --allow-state waving` before modifying a baseline. Deterministic edits use `--mode deterministic`. Repeat `--allow-state` for dependencies. Sources and final pixels are checked against scope. Build, inspect the affected preview and before/after, review, and accept.
 
 `variant` makes an independent copy from a verified accepted parent. The child can be changed immediately for a new overall treatment. For a narrowly scoped child edit, make a local build and use `plan-edit`; an unchanged child does not need a separate review and acceptance cycle first. Parent sources are never shared mutably. `import-package` recovers V2 pixels when editable sources are unavailable; inspect the recovered art and create a local build before a scoped edit.
 

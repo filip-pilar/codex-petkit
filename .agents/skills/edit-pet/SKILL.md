@@ -5,7 +5,7 @@ description: Edit, restore, or make a separate variant of an existing V2 Codex D
 
 # Edit a pet
 
-For GPT-6 Astra. Deliver the requested change while preserving identity, unaffected states, and the ability to undo. Infer routine choices from the request; existing authorization persists through repair and validation.
+Make the requested change while preserving identity, unaffected states, and the ability to undo.
 
 Start with `petkit status`. Use [workflow commands](../../../docs/WORKFLOWS.md) for importing, scoped edits, variants, and recovery. Use [artwork guidance](../../../docs/ARTWORK.md) only when new pixels or visual repairs are needed.
 

@@ -5,9 +5,9 @@ description: Create an animated V2 Codex Desktop pet from a concept or reference
 
 # Create a pet
 
-For GPT-6 Astra. Deliver a complete, visually inspected pet that matches the user's concept. Infer routine creative choices and continue through generation, repair, packaging, and validation. Ask only when an unresolved choice materially changes the identity or authorization. Honor approval checkpoints the user requested; do not invent intermediate ones.
+Create a complete, visually inspected pet that matches the user's concept.
 
-Use `python3 -m petkit status --project pets/<id>` to resume an existing project. Keep artwork in its ignored project directory. Establish a canonical identity with `approve-identity` once it matches the supplied direction; that command records the chosen reference and does not itself require a new conversation turn.
+Use `python3 -m petkit status --project pets/<id>` to resume an existing project. Keep artwork in its ignored project directory. Establish a canonical identity with `approve-identity` once it matches the supplied direction.
 
 Use image generation for new artwork. Read [artwork guidance](../../../docs/ARTWORK.md) when designing or repairing animation and [workflow commands](../../../docs/WORKFLOWS.md) for project operations. Use the contract command for exact geometry, state counts, and timings. Supporting mechanics plans and cardinal studies are optional tools for difficult characters.
 

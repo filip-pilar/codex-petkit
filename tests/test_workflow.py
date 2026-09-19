@@ -57,7 +57,7 @@ from tests.helpers import identity_image, replacement_frame, row_strip
 
 def build_project(project, *, draft=False):
     # This suite exercises historical independent-review artifacts and transaction recovery.
-    # The default, concise production route is covered in test_astra_workflow.
+    # The default, concise production route is covered in test_visual_review.
     return production_build(project, draft=draft, deep_review=True)
 
 

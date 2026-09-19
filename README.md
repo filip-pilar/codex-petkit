@@ -1,8 +1,8 @@
 # Pet Workshop
 
-Create, edit, preview and safely install animated Codex Desktop pets with **GPT-6 Astra**.
+Create, edit, preview and safely install animated Codex Desktop pets.
 
-Describe a character or a change. Astra carries the work through generation, visual inspection and repairs; `petkit` handles exact sprite geometry, packaging, scoped comparisons, versioned builds and undo. These skills target Astra exclusively. Artwork is generated through the available image-generation tool; the Python toolkit does not synthesize replacement art.
+Use the creation and editing skills to generate artwork and inspect animations. The `petkit` CLI handles sprite geometry, packaging, scoped comparisons, versioned builds and undo.
 
 ```text
 $create-pet Make a tiny plush moon moth with warm eyes and a satchel.
@@ -11,7 +11,7 @@ $edit-pet Make its wave more enthusiastic. Preserve every other animation.
 
 ## Get started
 
-Requires Python 3.11+, GPT-6 Astra in Codex with image generation available, and Codex Desktop on macOS for installation. Open a Codex task in this repository to discover the two project-local skills.
+Requires Python 3.11+, Codex with image generation, and Codex Desktop on macOS for installation. Open a Codex task in this repository to discover the two project-local skills.
 
 ```bash
 python3 -m venv .venv
@@ -20,7 +20,7 @@ python -m pip install -e .
 python -m petkit --help
 ```
 
-The ordinary workflow is **create or edit → build → inspect animation → record review → accept → install when authorized**. There are no mandatory creative-planning forms or reviewer panels. A focused edit preserves unrelated states exactly. Optional deep-review diagnostics remain available for difficult cases and historical projects.
+The ordinary workflow is **create or edit → build → inspect animation → record review → accept → install when authorized**. A focused edit preserves unrelated states exactly. Optional deep-review diagnostics provide direction and animation checks.
 
 ## What the toolkit protects
 
@@ -29,7 +29,7 @@ The ordinary workflow is **create or edit → build → inspect animation → re
 - Immutable releases, source hashes, scoped changes and recovery from interrupted operations.
 - Staged installation with verified backups and rollback. Installation never happens as a side effect of generation or build.
 
-Mechanical validation cannot establish visual quality. Astra inspects the previews and records observations tied to the exact release. Intentional repeated frames produce warnings for review rather than automatic rejection.
+Mechanical validation cannot establish visual quality. Inspect the previews and record observations tied to the exact release. Intentional repeated frames produce warnings for review rather than automatic rejection.
 
 ## Commands and local data
 

@@ -1,12 +1,10 @@
-# Pet Workshop — GPT-6 Astra
-
-This repository's agent workflows target GPT-6 Astra exclusively. Follow the user's requested outcome and authorization; skill guidance supplies defaults, not extra approval requirements.
+# Pet Workshop
 
 ## Working boundaries
 
-Preserve unrelated work, format/asset validation, exact edit scope, immutable releases, filesystem safety, and reversible installation. Local tests use synthetic disposable fixtures with no production access; run relevant checks and fix regressions without asking at each step. Complete implementation and validation before handing work back. Run the full suite for changes to build, review, installation, or project transactions; use focused checks for documentation-only changes.
+Preserve unrelated work, format/asset validation, exact edit scope, immutable releases, filesystem safety, and reversible installation. Local tests use temporary synthetic fixtures. Run the full suite for changes to build, review, installation, or project transactions; use focused checks for documentation-only changes.
 
-Do not inspect ignored `pets/` projects unless requested. Never commit personal artwork, references, installation backups, or private review data. Installing a pet needs user authorization, which may already be included in their request. Publication and external actions require their own authorization.
+Do not inspect ignored `pets/` projects unless requested. Never commit personal artwork, references, installation backups, or private review data. Installation writes to the user’s Codex pets directory; use temporary target directories in tests.
 
 ## Where to look
 
